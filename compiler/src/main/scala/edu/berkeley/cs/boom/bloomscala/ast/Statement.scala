@@ -20,7 +20,8 @@ trait MappedCollectionTarget extends Node
 /** Collections that are derived through operations like map and join */
 trait DerivedCollection extends StatementRHS with MappedCollectionTarget with Node
 
-case class MappedCollection(collection: MappedCollectionTarget, tupleVars: List[String],
+//case class MappedCollection(collection: MappedCollectionTarget, tupleVars: List[String],
+case class MappedCollection(collection: CollectionRef, tupleVars: List[String],
                             rowExpr: RowExpr) extends DerivedCollection
 
 case class NotIn(a: CollectionRef, b: CollectionRef) extends DerivedCollection

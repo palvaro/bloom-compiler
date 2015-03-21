@@ -41,7 +41,8 @@ object BloomScalaBuild extends Build {
         "org.scalatest" % "scalatest_2.10" % "2.0" % "test",
         "com.googlecode.kiama" % "kiama_2.10" % "1.5.2",
         "com.quantifind" %% "sumac" % "0.2.3",
-        "org.typelevel" %% "scalaz-contrib-210" % "0.1.5"
+        "org.typelevel" %% "scalaz-contrib-210" % "0.1.5",
+        "com.github.jnr" % "jnr-ffi" % "1.0.10"
       )
     )
   )

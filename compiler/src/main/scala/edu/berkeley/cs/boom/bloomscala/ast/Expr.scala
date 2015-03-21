@@ -38,3 +38,5 @@ case class EqualityPredicate(a: ColExpr, b: ColExpr) extends Predicate
 case class FunctionCall(functionRef: FunctionRef, arguments: List[ColExpr]) extends ColExpr {
   override val typ = functionRef.function.typ.returnType
 }
+
+case class ConstantColExpr(data: String, override val typ: BloomType) extends ColExpr

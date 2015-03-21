@@ -46,6 +46,8 @@ class Typer(messaging: Messaging) {
         BloomInt
       case BoundFieldRef(_, _, field) =>
         field.typ
+      case ConstantColExpr(_, typ) =>
+        typ
     }
 
   private lazy val rowType: RowExpr => RecordType =

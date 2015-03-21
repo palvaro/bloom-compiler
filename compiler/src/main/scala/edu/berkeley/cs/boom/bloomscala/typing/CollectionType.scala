@@ -9,6 +9,8 @@ object CollectionType extends Enumeration {
     "scratch" -> Scratch,
     "input" -> Input,
     "output" -> Output,
+    "interface input," -> Input,
+    "interface output," -> Output,
     "channel" -> Channel
   )
   val validLHSTypes = Set(Table, Output, Channel, Scratch)

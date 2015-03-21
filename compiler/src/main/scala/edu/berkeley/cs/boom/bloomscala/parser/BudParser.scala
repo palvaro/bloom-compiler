@@ -6,7 +6,7 @@ import org.kiama.attribution.Attribution
 import edu.berkeley.cs.boom.bloomscala.rewriting.InitialRewrites
 import edu.berkeley.cs.boom.bloomscala.typing.{UnknownType, CollectionType, FieldType}
 
-trait BudParser extends PositionedParserUtilities {
+trait   BudParser extends PositionedParserUtilities {
 
   /********** Helper Methods **********/
 
@@ -21,14 +21,20 @@ trait BudParser extends PositionedParserUtilities {
 
   /********** Declarations **********/
 
-  lazy val ident = "[a-zA-Z][a-zA-Z0-9]*".r
+  lazy val ident = opt(":") ~> "[a-zA-Z][a-zA-Z0-9_]*".r
+
+  lazy val lbrac = ("do" | "{")
+  lazy val rbrac = ("end" | "}")
 
   lazy val collectionDeclaration = {
     def columnsDeclaration: Parser[List[Field]] = listOf(tableColumn)
-    def tableColumn = ident ~ ":" ~ fieldType ^^ { case i ~ ":" ~ f => Field(i, f) }
+    def tableColumn = ident ~ opt(":" ~ fieldType) ^^ {
+      case i ~ Some(":" ~ f) => Field(i, f)
+      case i ~ None => Field(i, FieldType("string"))
+    }
 
     (collectionType ~ ident ~ "," ~ opt(columnsDeclaration ~ opt("=>" ~> columnsDeclaration))) ^^ {
-      case collectionType ~ ident ~ "," ~ keyVals =>
+      case collectionType ~  ident ~ "," ~ keyVals =>
         val keys = keyVals.map(_._1).getOrElse(List.empty)
         val values = keyVals.flatMap(_._2).getOrElse(List.empty)
         new CollectionDeclaration(collectionType, ident, keys, values)
@@ -36,6 +42,12 @@ trait BudParser extends PositionedParserUtilities {
   }
 
   /********** Statements **********/
+
+  lazy val number = "[0-9]+".r ^^ { s => ConstantColExpr(s, FieldType.BloomInt)}
+  lazy val string = "\"[^\"]*\"".r ^^ { s => ConstantColExpr(s.stripPrefix("\"").stripSuffix("\""), FieldType.BloomString)}
+
+
+  lazy val constant = string | number
 
   lazy val collectionRef = ident ^^ { i => FreeCollectionRef(i) }
 
@@ -50,7 +62,7 @@ trait BudParser extends PositionedParserUtilities {
   lazy val colTerm = fieldRef
   lazy val colExpr: Parser[ColExpr] = {
     def plus = colTerm ~ "+" ~ colExpr ^^ {case a ~ "+" ~ b => PlusStatement(a, b, UnknownType())}
-    plus | functionCall | colTerm
+    plus | functionCall | colTerm | constant
   }
   lazy val rowExpr: Parser[RowExpr] = listOf(colExpr) ^^ RowExpr
   lazy val predicate: Parser[Predicate] = {
@@ -81,7 +93,7 @@ trait BudParser extends PositionedParserUtilities {
       case tupleVars ~ rowExpr => (tupleVars, rowExpr)
     }
 
-    lazy val collectionMap = collection ~ mapBlock ^^ {
+    lazy val collectionMap = collectionRef ~ mapBlock ^^ {
       case collection ~ tupleVarsRowExpr =>
         MappedCollection(collection, tupleVarsRowExpr._1, tupleVarsRowExpr._2)
     }
@@ -97,8 +109,48 @@ trait BudParser extends PositionedParserUtilities {
   override val whiteSpace =
     """(\s|(//.*\n))+""".r
 
-  lazy val program = rep(statement | collectionDeclaration) ^^ Program
+/*
+  //lazy val program = rep(statement | collectionDeclaration) ^^ Program
+  lazy val block = rep(statement | collectionDeclaration)
+  lazy val blockDec = block //| (("bloom" | "state") ~> opt(ident) ~> lbrac ~> block <~ rbrac)
+  lazy val blockRep = rep(blockDec) ^^ {case r => r.flatten}
+  //lazy val blockDec = "state" ~ "{" ~> block <~ "}"
+  lazy val modDec = ("module" | "class") ~> ident ~> lbrac ~> blockRep <~ rbrac
+  lazy val modRep = rep(modDec) ^^ {case m => m.flatten}
 
+
+
+  //lazy val program = (block  | modRep | blockRep | block  ) ^^ Program
+  //lazy val program = (block  | blockRep | modRep  ) ^^ Program
+  lazy val program = (
+    modRep |
+    blockRep |
+    //blockDec |
+    //rep(blockDec) |
+    block |
+    //blockRep |
+      failure("unknown")) ^^ Program
+*/
+
+
+  //`xlazy val program = block ^^ Program
+
+
+
+
+    lazy val modRep = rep(modDec) ^^ {case m => m.flatten}
+    lazy val modDec = opt(("module" | "class") ~> ident ~> lbrac) ~> blockRep  <~ opt(rbrac)
+    lazy val blockRep = rep(blockDec) ^^ {case r => r.flatten}
+    lazy val blockDec = (("bloom" | "state") ~> opt(ident) ~> lbrac ~> block <~ rbrac) | block
+    lazy val block = rep(statement | collectionDeclaration)
+
+    lazy val program = block ^^ Program
+  /*
+    lazy val program = rep(blockDec) ^^ {case b =>
+      println("FLATTEN $b")
+      Program(b.flatten)
+    }
+*/
 }
 
 object BudParser extends BudParser {

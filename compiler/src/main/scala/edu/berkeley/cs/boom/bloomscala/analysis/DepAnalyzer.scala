@@ -11,7 +11,6 @@ case class Dependency(dependency: CollectionDeclaration,
                       stmt: Statement)
 
 class DepAnalyzer(program: Program) {
-
   /**
    * The statements defining this collection.
    */
@@ -51,7 +50,12 @@ class DepAnalyzer(program: Program) {
       case stmt @ Statement(lhs, op, rhs, _) =>
         val isTemporal = stmt.op != BloomOp.<=
         for ((collection, isNegated, isMonotonic) <- annotatedDependencies(rhs)) yield {
-          Dependency(collection, isNegated, isTemporal, isMonotonic, stmt)
+          if (lhs.name.endsWith("_gate")) {
+            Dependency(collection, true, isTemporal, false, stmt)
+          } else {
+            Dependency(collection, isNegated, isTemporal, isMonotonic, stmt)
+          }
+
         }
     }
 
@@ -68,6 +72,7 @@ class DepAnalyzer(program: Program) {
       case argmin: ArgMin => Seq((argmin.collection.collection, false, false))
       case a: Attributable => a.children.flatMap(annotatedDependencies).toTraversable
     }
+
 
   lazy val transitiveDeductiveDependencies: Statement => Set[Statement] =
     circular(Set.empty[Statement]) {
