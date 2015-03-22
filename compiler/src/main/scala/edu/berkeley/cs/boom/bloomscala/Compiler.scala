@@ -31,7 +31,8 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       val parseResults = BudParser.parseProgram(src)
       val named = new Namer(messaging).resolveNames(parseResults)
       val typed = new Typer(messaging).resolveTypes(named)
-      typed
+      // the thinking is that this rewrite should be perfectly hygienic.
+      staggerNonmonotonics(typed)
     } catch { case e: Exception =>
       logger.error("Compilation failed", e)
       throw e
@@ -50,75 +51,27 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
    * Compiles a program, but stops short of code generation.
    */
   def compileToIntermediateForm(src: CharSequence)(implicit messaging: Messaging): Program = {
-    val typed = nameAndType(src)
-    val depAnalyzer = new DepAnalyzer(typed)
-    val stratifier = new Stratifier(depAnalyzer)
-    if (!stratifier.isTemporallyStratifiable(typed)) {
-      throw new StratificationError("Program is unstratifiable")
-    }
-    typed
+    nameAndType(src)
   }
 
   def analysis(program: Program)(implicit messaging: Messaging): (Stratifier, DepAnalyzer) = {
     val depAnalyzer = new DepAnalyzer(program)
     val stratifier = new Stratifier(depAnalyzer)
+    if (!stratifier.isTemporallyStratifiable(program)) {
+      throw new StratificationError("Program is unstratifiable")
+    }
     (stratifier, depAnalyzer)
   }
 
   def generateCode(program: Program, generator: CodeGenerator)(implicit messaging: Messaging): (CharSequence, Stratifier) = {
+    val (stratifier, depAnalyzer) = analysis(program)
     generator match {
       case C4CodeGenerator =>
-        val firstRewrite = staggerNonmonotonics(program)
-        val (stratifier, depAnalyzer) = analysis(program)
-        val stratified = addStratConditions(firstRewrite, stratifier)
+        val stratified = addStratConditions(program, stratifier)
         (generator.generateCode(stratified, stratifier, depAnalyzer), stratifier)
-      case _ =>
-        val (stratifier, depAnalyzer) = analysis(program)
-        (generator.generateCode(program, stratifier, depAnalyzer), stratifier)
+      case _ => (generator.generateCode(program, stratifier, depAnalyzer), stratifier)
     }
   }
-
-  def c4Play(program: Program, code: CharSequence, stratifier: Stratifier): Unit = {
-    println(s"*** $code ***")
-    val maxStratum = program.nodes.map { n =>
-      val ret = n match {
-        case s: Statement => stratifier.ruleStratum(s)
-        case d: CollectionDeclaration => stratifier.collectionStratum(d)
-      }
-      println(s"RET $ret for $n")
-      ret
-    }.filter(r => r != Stratum.lastStratum).max
-
-    val wrap = new C4Wrapper("foo", code.toString, maxStratum)
-    wrap.start
-
-
-    //wrap.install("stratum(0);")
-    wrap.install("link(\"a\", \"b\", 3);")
-    wrap.install("link(\"b\", \"c\", 2);")
-    wrap.install("link(\"c\", \"d\", 2);")
-
-    wrap.tick
-
-    var res2 = wrap.dump("path")
-    println(s"RES2 $res2")
-    var res3 = wrap.dump("next_strat")
-    println(s"RES2 $res3")
-
-    println("DO THE DEL")
-    wrap.install("del_time(0);")
-    res2 = wrap.dump("path")
-    println(s"RES2 $res2")
-    res3 = wrap.dump("next_strat")
-    println(s"RES2 $res3")
-
-    //fixpoint(wrap, maxstrat)
-    wrap.tick
-
-    var res1 = wrap.dump("stratum")
-    println(s"STRAT ${res1}")
-  }
-
 
   def main(args: CompilerArgs) {
     implicit val messaging = new Messaging
@@ -128,17 +81,8 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       case "c4" => C4CodeGenerator
       case unknown => throw new IllegalArgumentException(s"Unknown target platform $unknown")
     }
-    val program = compileToIntermediateForm(Source.fromFile(args.infile).mkString)
+    val program = nameAndType(Source.fromFile(args.infile).mkString)
     val (code, stratifier) = generateCode(program, generator)
-
-
-    // now screw around
-    args.target.toLowerCase match {
-      case "c4" =>
-        c4Play(program, code, stratifier)
-      case _ => println(code)
-
-    }
-
+    println(code)
   }
 }

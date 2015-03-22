@@ -7,6 +7,7 @@ import java.io.File
 import edu.berkeley.cs.boom.bloomscala.codegen.js.RxFlowCodeGenerator
 import edu.berkeley.cs.boom.bloomscala.codegen.CodeGenerator
 import edu.berkeley.cs.boom.bloomscala.codegen.dataflow.GraphvizDataflowPrinter
+import edu.berkeley.cs.boom.bloomscala.codegen.c4.C4CodeGenerator
 import org.kiama.util.Messaging
 
 /**
@@ -37,5 +38,9 @@ class ExamplesSuite extends PropSpec with TableDrivenPropertyChecks {
 
   property("Should compile with GraphViz backend") {
     forAll(examples) { compilesWithBackend(GraphvizDataflowPrinter) }
+  }
+
+  property("Should compile with C4 backend") {
+    forAll(examples) { compilesWithBackend(C4CodeGenerator) }
   }
 }

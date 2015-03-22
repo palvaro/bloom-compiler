@@ -13,13 +13,10 @@ import edu.berkeley.cs.boom.bloomscala.codegen.c4.C4CodeGenerator
 //import com.codahale.metrics.MetricRegistry
 
 
-class C4Wrapper(name: String, program: String, maxstrat: Stratum)
-               //(implicit val metricRegistry: MetricRegistry)
-              //extends LazyLogging with InstrumentedBuilder {
-{
+class C4Wrapper(name: String, program: String, maxstrat: Stratum, port: Int = 0) {
   //private val time = metrics.timer("time")
   C4Wrapper.libC4.c4_initialize()
-  private val c4 = C4Wrapper.libC4.c4_make(null, 0)
+  private val c4 = C4Wrapper.libC4.c4_make(null, port)
   private var budTime = 0
 
   def start: Unit = C4Wrapper.synchronized {
@@ -52,21 +49,21 @@ class C4Wrapper(name: String, program: String, maxstrat: Stratum)
   }
 
   def tick: Unit = {
+    if (budTime > 0) {
+      install(s"del_time(${budTime - 1});")
+    }
     install(s"real_stratum($budTime, 0);")
     println(s"maxStrat is $maxstrat")
-    //val ns = dump("next_strat")
-    //println(s"next strat is $ns")
-    //var nextStrat = ns(0)(0).toInt
-    /*
     var nextStrat = 1;
-
     while (nextStrat < maxstrat.underlying) {
       println(s"so stratum $nextStrat upto ${Stratum.lastStratum.underlying}")
-      install(s"stratum($nextStrat);")
-      nextStrat = dump("next_strat")(0)(0).toInt
+      install(s"real_stratum($budTime, $nextStrat);")
+      // assuming that this is a barrier!
+      val shouldBe = dump("next_strat")(0)(0).toInt
+      println(s"next should be $shouldBe")
+      nextStrat += 1
     }
     budTime += 1
-    */
   }
 
   def parseTableDump(string: String): List[List[String]] = {

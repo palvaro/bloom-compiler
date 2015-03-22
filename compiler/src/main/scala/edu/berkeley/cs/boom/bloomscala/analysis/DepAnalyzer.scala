@@ -50,12 +50,7 @@ class DepAnalyzer(program: Program) {
       case stmt @ Statement(lhs, op, rhs, _) =>
         val isTemporal = stmt.op != BloomOp.<=
         for ((collection, isNegated, isMonotonic) <- annotatedDependencies(rhs)) yield {
-          if (lhs.name.endsWith("_gate")) {
-            Dependency(collection, true, isTemporal, false, stmt)
-          } else {
-            Dependency(collection, isNegated, isTemporal, isMonotonic, stmt)
-          }
-
+          Dependency(collection, isNegated, isTemporal, isMonotonic, stmt)
         }
     }
 

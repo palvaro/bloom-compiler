@@ -26,14 +26,14 @@ object StratRewrites {
       case Statement(lhs, op, rhs, n) =>
         rhs match {
           case NotIn(left, anti) =>
-            val nm = List(left.name, n, "_gate").mkString("_")
+            val nm = List(lhs.name, n, "_gated").mkString("_")
             val gate = CollectionDeclaration(CollectionType.Scratch, nm, left.collection.keys, left.collection.values)
-            val newRHS = BoundCollectionRef(left.name, left.collection, 0)
-            List (
+            val gateRef = BoundCollectionRef(nm, gate, 0)
+            List(
               gate,
-              Statement(BoundCollectionRef(nm, gate, 0), BloomOp.InstantaneousMerge, newRHS, -1),
-              Statement(lhs, op, NotIn(BoundCollectionRef(nm, gate, left.lambdaArgNumber), anti), n)
-          )
+              Statement(gateRef, op, rhs, n),
+              Statement(lhs, BloomOp.InstantaneousMerge, gateRef, -1)
+            )
           case _ => List(Statement(lhs, op, rhs, n))
         }
     }
