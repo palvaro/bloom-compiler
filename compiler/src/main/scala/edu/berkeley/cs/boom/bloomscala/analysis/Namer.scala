@@ -15,7 +15,7 @@ class Namer(messaging: Messaging) {
   import messaging.message
 
   def resolveNames(program: Program): Program = {
-    rewrite(everywhere(bindCollectionRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef))(program)
+    rewrite(everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef))(program)
   }
 
   private val bindCollectionRef =
@@ -36,6 +36,32 @@ class Namer(messaging: Messaging) {
     rule {
       case fr: FreeFunctionRef =>
         bindFunction(fr)
+    }
+
+  private val bindTableRef =
+    rule {
+      case mr: MappedCollection => bindMapCR(mr)
+      case j: JoinedCollections => bindJoins(j)
+    }
+
+  private implicit def bindMapCR: MappedCollection => MappedCollection =
+    attr {
+      case MappedCollection(collection, tupleVars, e: TableRefExpr) =>
+        println("OH!")
+        val colList = (collection.collection.keys ++ collection.collection.values).map(c => BoundFieldRef(collection, c.name, Field(e.alias, c.typ)))
+        MappedCollection(collection, tupleVars, RowExpr(colList))
+      case m => m
+    }
+
+  private implicit def bindJoins: JoinedCollections => JoinedCollections =
+    attr {
+      case JoinedCollections(collections, preds, tupleVars, e: TableRefExpr) =>
+        println("OH!!")
+        val thisCollection = collections(tupleVars.indexOf(e.alias))
+        println(s"THIS $thisCollection")
+        val colList = (thisCollection.collection.keys ++ thisCollection.collection.values).map(c => BoundFieldRef(thisCollection, c.name, Field(e.alias, c.typ)))
+        JoinedCollections(collections, preds, tupleVars, RowExpr(colList))
+      case j => j
     }
 
   private implicit def bind: CollectionRef => BoundCollectionRef =

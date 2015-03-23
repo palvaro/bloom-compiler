@@ -26,9 +26,6 @@ trait   BudParser extends PositionedParserUtilities {
   lazy val lbrac = ("do" | "{")
   lazy val rbrac = ("end" | "}")
 
-  lazy val lbrac = "do" | "{"
-  lazy val rbrac = "end" | "}"
-
   lazy val collectionDeclaration: Parser[CollectionDeclaration] = {
     def columnsDeclaration: Parser[List[Field]] = listOf(tableColumn)
     def tableColumn = ident ~ opt(":" ~ fieldType) ^^ {
@@ -67,7 +64,9 @@ trait   BudParser extends PositionedParserUtilities {
     def plus = colTerm ~ "+" ~ colExpr ^^ {case a ~ "+" ~ b => PlusStatement(a, b, UnknownType())}
     plus | functionCall | colTerm | constant
   }
-  lazy val rowExpr: Parser[RowExpr] = listOf(colExpr) ^^ RowExpr
+  //lazy val rowExpr: Parser[RowExpr] = listOf(colExpr) ^^ RowExpr
+  lazy val rowExpr: Parser[Expr] = (listOf(colExpr) ^^ RowExpr)| (ident ^^ TableRefExpr)
+
   lazy val predicate: Parser[Predicate] = {
     lazy val eqPred = colExpr ~ "==" ~ colExpr ^^ { case a ~ "==" ~ b => EqualityPredicate(a, b)}
     eqPred
@@ -126,6 +125,7 @@ trait   BudParser extends PositionedParserUtilities {
   lazy val program: Parser[Program] = {
     lazy val topLevelDef = (statement | collectionDeclaration) ^^ { case x => List(x) }
     rep(blockDeclaration | moduleDeclaration | topLevelDef) ^^ {
+    //rep(moduleDeclaration| blockDeclaration |  topLevelDef) ^^ {
       case listOfListsOfNodes => Program(listOfListsOfNodes.flatten)
     }
   }
@@ -133,14 +133,14 @@ trait   BudParser extends PositionedParserUtilities {
 
 
 
-
+/*
     lazy val modRep = rep(modDec) ^^ {case m => m.flatten}
     lazy val modDec = opt(("module" | "class") ~> ident ~> lbrac) ~> blockRep  <~ opt(rbrac)
     lazy val blockRep = rep(blockDec) ^^ {case r => r.flatten}
     lazy val blockDec = (("bloom" | "state") ~> opt(ident) ~> lbrac ~> block <~ rbrac) | block
     lazy val block = rep(statement | collectionDeclaration)
-
-    lazy val program = block ^^ Program
+*/
+    //lazy val program = block ^^ Program
 }
 
 object BudParser extends BudParser {

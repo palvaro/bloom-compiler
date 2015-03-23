@@ -61,7 +61,8 @@ class DepAnalyzer(program: Program) {
   lazy val annotatedDependencies: Attributable => Traversable[(CollectionDeclaration, Boolean, Boolean)] =
     // TODO: refactor the return type to use case classes instead of tuples.
     attr {
-      case mc: MappedCollection => mc.rowExpr.cols.flatMap(annotatedDependencies)
+      //case mc: MappedCollection(c, t, re: RowExpr) => mc.rowExpr.cols.flatMap(annotatedDependencies)
+      case MappedCollection(c, t, re: RowExpr) => re.cols.flatMap(annotatedDependencies)
       case NotIn(a, b) => Seq((a.collection, false, true), (b.collection, true, false))
       case cr: CollectionRef => Seq((cr.collection, false, true))
       case argmin: ArgMin => Seq((argmin.collection.collection, false, false))

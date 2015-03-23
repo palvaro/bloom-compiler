@@ -31,11 +31,11 @@ trait DataflowCodeGenerator extends CodeGenerator {
       val rhsOutput: OutputPort = rhs match {
         case cr: CollectionRef =>
           graph.scannableCollections(cr.collection).scanner.output
-        case MappedCollection(cr: CollectionRef, tupVars, rowExpr) =>
+        case MappedCollection(cr: CollectionRef, tupVars, rowExpr: RowExpr) =>
           val mapElem = MapElement(rowExpr, 1)
           mapElem.input <-> graph.scannableCollections(cr.collection).scanner.output
           mapElem.output
-        case JoinedCollections(List(a, b), List(EqualityPredicate(aExpr, bExpr)), tupVars, rowExpr) =>
+        case JoinedCollections(List(a, b), List(EqualityPredicate(aExpr, bExpr)), tupVars, rowExpr: RowExpr) =>
           // TODO: generalize for 3+ tables.
           // We can implement this using a pair of stateful hash join operators,
           // one for each delta.

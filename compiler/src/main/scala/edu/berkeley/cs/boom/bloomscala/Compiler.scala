@@ -13,7 +13,7 @@ import com.quantifind.sumac.validation.Required
 import scala.io.Source
 import edu.berkeley.cs.boom.bloomscala.codegen.CodeGenerator
 import edu.berkeley.cs.boom.bloomscala.codegen.dataflow.GraphvizDataflowPrinter
-import edu.berkeley.cs.boom.bloomscala.codegen.c4.C4CodeGenerator
+import edu.berkeley.cs.boom.bloomscala.codegen.c4.{C4CodeGenerator, DedalusCodeGenerator}
 import edu.berkeley.cs.boom.bloomscala.typing.Typer
 import edu.berkeley.cs.boom.bloomscala.rewriting.StratRewrites._
 
@@ -79,6 +79,7 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       case "rxflow" => RxFlowCodeGenerator
       case "dataflow" => GraphvizDataflowPrinter
       case "c4" => C4CodeGenerator
+      case "dedalus" => DedalusCodeGenerator
       case unknown => throw new IllegalArgumentException(s"Unknown target platform $unknown")
     }
     val program = nameAndType(Source.fromFile(args.infile).mkString)

@@ -58,10 +58,10 @@ class Typer(messaging: Messaging) {
 
   private lazy val rhsSchema: StatementRHS => RecordType =
     attr {
-      case mc: MappedCollection =>
-        mc.rowExpr->rowType
-      case join: JoinedCollections =>
-        join.rowExpr->rowType
+      case MappedCollection(_,_,rowExpr: RowExpr) =>
+        rowExpr->rowType
+      case JoinedCollections(_,_,_,rowExpr: RowExpr) =>
+        rowExpr->rowType
       case cr: CollectionRef =>
         cr.collection.schema
       case notin @ NotIn(a, b) =>
