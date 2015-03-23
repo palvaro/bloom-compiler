@@ -1,6 +1,6 @@
 package edu.berkeley.cs.boom.bloomscala.ast
 
-import edu.berkeley.cs.boom.bloomscala.typing.{RecordType, BloomType}
+import edu.berkeley.cs.boom.bloomscala.typing.{UnknownType, RecordType, BloomType}
 
 /************************* Base Classes ***********************************/
 
@@ -16,6 +16,14 @@ trait ColExpr extends Expr
 /**
  * An expression producing a fixed-size array with heterogeneous element types.
  */
+
+/*
+trait AbstractRowExpr() extends Expr {
+  val cols: List[ColExpr] = List()
+  val typ: BloomType = RecordType(cols.map(_.typ))
+}
+*/
+
 case class RowExpr(cols: List[ColExpr]) extends Expr {
   val typ: BloomType = RecordType(cols.map(_.typ))
 }
@@ -40,3 +48,7 @@ case class FunctionCall(functionRef: FunctionRef, arguments: List[ColExpr]) exte
 }
 
 case class ConstantColExpr(data: String, override val typ: BloomType) extends ColExpr
+
+case class TableRefExpr(alias: String) extends Expr {
+  override val typ = UnknownType()
+}

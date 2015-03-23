@@ -22,14 +22,14 @@ trait DerivedCollection extends StatementRHS with MappedCollectionTarget with No
 
 //case class MappedCollection(collection: MappedCollectionTarget, tupleVars: List[String],
 case class MappedCollection(collection: CollectionRef, tupleVars: List[String],
-                            rowExpr: RowExpr) extends DerivedCollection
+                            rowExpr: Expr) extends DerivedCollection
 
 case class NotIn(a: CollectionRef, b: CollectionRef) extends DerivedCollection
 
 case class JoinedCollections(collections: List[CollectionRef],
                              predicate: List[Predicate],
                              tupleVars: List[String],
-                             rowExpr: RowExpr) extends DerivedCollection
+                             rowExpr: Expr) extends DerivedCollection
 
 /**
  * Implements argmin.
