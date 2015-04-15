@@ -1,16 +1,10 @@
 package edu.berkeley.cs.boom.bloomscala.exe
 
-//import edu.berkeley.cs.boom.molly.UltimateModel
-//import edu.berkeley.cs.boom.molly.ast.{IntLiteral, Program}
-
 import edu.berkeley.cs.boom.bloomscala.analysis.Stratum
-import edu.berkeley.cs.boom.bloomscala.ast.{Program}
+import edu.berkeley.cs.boom.bloomscala.ast.Program
 import jnr.ffi.LibraryLoader
-
-//import com.typesafe.scalalogging.LazyLogging
 import edu.berkeley.cs.boom.bloomscala.codegen.c4.C4CodeGenerator
-//import nl.grons.metrics.scala.InstrumentedBuilder
-//import com.codahale.metrics.MetricRegistry
+
 
 
 class C4Wrapper(name: String, program: String, maxstrat: Stratum, port: Int = 0) {
@@ -54,7 +48,7 @@ class C4Wrapper(name: String, program: String, maxstrat: Stratum, port: Int = 0)
     }
     install(s"real_stratum($budTime, 0);")
     println(s"maxStrat is $maxstrat")
-    var nextStrat = 1;
+    var nextStrat = 1
     while (nextStrat < maxstrat.underlying) {
       println(s"so stratum $nextStrat upto ${Stratum.lastStratum.underlying}")
       install(s"real_stratum($budTime, $nextStrat);")
@@ -63,6 +57,8 @@ class C4Wrapper(name: String, program: String, maxstrat: Stratum, port: Int = 0)
       println(s"next should be $shouldBe")
       nextStrat += 1
     }
+
+    install(s"real_stratum($budTime, ${Stratum.lastStratum.underlying});")
     budTime += 1
   }
 

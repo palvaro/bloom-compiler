@@ -45,7 +45,10 @@ class Typer(messaging: Messaging) {
         expectType(b, BloomInt)
         BloomInt
       case BoundFieldRef(_, _, field) =>
-        field.typ
+        field.typ match {
+          case FieldType.BloomLocation => FieldType.BloomString
+          case f => f
+        }
       case ConstantColExpr(_, typ) =>
         typ
     }
@@ -58,6 +61,7 @@ class Typer(messaging: Messaging) {
 
   private lazy val rhsSchema: StatementRHS => RecordType =
     attr {
+      case Facts(rows) => rows(0)->rowType
       case MappedCollection(_,_,rowExpr: RowExpr) =>
         rowExpr->rowType
       case JoinedCollections(_,_,_,rowExpr: RowExpr) =>
@@ -94,7 +98,7 @@ class Typer(messaging: Messaging) {
         if (!referencedCollections(rhs).forall(c => CollectionType.validRHSTypes.contains(c.collectionType))) {
           message(stmt, s"Output collections cannot appear in the RHS of rules")
           false
-        } else if (!CollectionType.validLHSTypes.contains(lhs.collection.collectionType)) {
+        } else if (!CollectionType.validLHSTypes.contains(lhs.collection.collectionType) && !rhs.isInstanceOf[Facts]) {
           message(stmt, s"Cannot insert into collections of type '${lhs.collection.collectionType}'")
           false
         } else if (lhs.collection.collectionType == CollectionType.Output && op != BloomOp.AsynchronousMerge) {
@@ -104,7 +108,7 @@ class Typer(messaging: Messaging) {
           val lSchema = lhs.collection.schema
           val rSchema = rhsSchema(rhs)
           if (rSchema != lSchema) {
-            message(stmt, s"RHS has wrong schema; expected ${pretty(lSchema)} but got ${pretty(rSchema)}")
+            message(stmt, s"RHS (for ${lhs.name} <= ${rhs}}) has wrong schema; expected ${pretty(lSchema)} but got ${pretty(rSchema)}")
             false
           } else {
             true

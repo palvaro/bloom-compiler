@@ -15,7 +15,16 @@ case class CollectionDeclaration(
     keys: List[Field],
     values: List[Field])
   extends Node {
-  val schema: RecordType = RecordType((keys ++ values).map(_.typ))
+
+  val typs = (keys ++ values).map{ r =>
+    r.typ match {
+      case FieldType.BloomLocation => FieldType.BloomString
+      case t => t
+    }
+  }
+
+  val schema: RecordType = RecordType(typs)
+
   def getField(name: String): Option[Field] = {
     (keys ++ values).find(_.name == name)
   }

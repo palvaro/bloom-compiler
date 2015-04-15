@@ -9,14 +9,22 @@ import edu.berkeley.cs.boom.bloomscala.stdlib.{UnknownFunction, BuiltInFunctions
 
 /**
  * Rewrites the AST to bind field, function, and collection references.
+   PAA: hoist up modules too!
  */
 class Namer(messaging: Messaging) {
 
   import messaging.message
 
   def resolveNames(program: Program): Program = {
-    rewrite(everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef))(program)
+    val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef) <* everywhere(bindModuleRef)
+    rewrite(bindings)(program)
   }
+
+  private val bindModuleRef =
+    rule {
+      case m: Include => bindModule(m)
+
+    }
 
   private val bindCollectionRef =
     rule {
@@ -35,6 +43,7 @@ class Namer(messaging: Messaging) {
   private val bindFunctionRef =
     rule {
       case fr: FreeFunctionRef =>
+
         bindFunction(fr)
     }
 
@@ -44,10 +53,15 @@ class Namer(messaging: Messaging) {
       case j: JoinedCollections => bindJoins(j)
     }
 
+  private implicit def bindModule: Include => Program =
+    attr {
+      case i @ Include(file) => Program(i->lookupModule(file))
+      case m => m
+    }
+
   private implicit def bindMapCR: MappedCollection => MappedCollection =
     attr {
       case MappedCollection(collection, tupleVars, e: TableRefExpr) =>
-        println("OH!")
         val colList = (collection.collection.keys ++ collection.collection.values).map(c => BoundFieldRef(collection, c.name, Field(e.alias, c.typ)))
         MappedCollection(collection, tupleVars, RowExpr(colList))
       case m => m
@@ -56,9 +70,7 @@ class Namer(messaging: Messaging) {
   private implicit def bindJoins: JoinedCollections => JoinedCollections =
     attr {
       case JoinedCollections(collections, preds, tupleVars, e: TableRefExpr) =>
-        println("OH!!")
         val thisCollection = collections(tupleVars.indexOf(e.alias))
-        println(s"THIS $thisCollection")
         val colList = (thisCollection.collection.keys ++ thisCollection.collection.values).map(c => BoundFieldRef(thisCollection, c.name, Field(e.alias, c.typ)))
         JoinedCollections(collections, preds, tupleVars, RowExpr(colList))
       case j => j
@@ -116,6 +128,24 @@ class Namer(messaging: Messaging) {
     }
   }
 
+  private lazy val lookupModule: String => Attributable => Seq[Node] =
+    paramAttr {
+      name => {
+        case program: Program =>
+          // ugh
+          val modTxt = program.nodes.find{
+            case Module(_, name) => true
+            case _ => false
+          }
+          modTxt match {
+            case Some(Module(nodes, name)) => nodes.toSeq
+            case Some(_) => Seq()
+            case None => Seq()
+          }
+        case n => n.parent->lookupModule(name)
+      }
+    }
+
   private lazy val lookupTupleVar: String => Attributable => (CollectionDeclaration, Int) =
     paramAttr {
       name => {
@@ -146,11 +176,15 @@ class Namer(messaging: Messaging) {
   private lazy val lookup: String => Attributable => CollectionDeclaration =
     paramAttr {
       name => {
+        case module: Module =>
+          val colls: Traversable[CollectionDeclaration] = module.nodes.filter(_.isInstanceOf[CollectionDeclaration]).map(_.asInstanceOf[CollectionDeclaration])
+          val decl = colls.find(_.name == name)
+          decl.getOrElse(new MissingDeclaration())
         case program: Program =>
           val decl = program.declarations.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
-        case n => n.parent->lookup(name)
+        case n =>
+          n.parent->lookup(name)
       }
     }
-
 }

@@ -31,6 +31,11 @@ case class JoinedCollections(collections: List[CollectionRef],
                              tupleVars: List[String],
                              rowExpr: Expr) extends DerivedCollection
 
+case class Facts(tups: List[RowExpr]) extends StatementRHS
+
+case class Include(mod: String) extends Node
+case class Import(mod: String, name: String) extends Node
+
 /**
  * Implements argmin.
  *

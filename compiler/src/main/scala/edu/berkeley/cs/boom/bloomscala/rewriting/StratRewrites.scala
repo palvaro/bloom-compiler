@@ -9,17 +9,6 @@ object StratRewrites {
 
   val dec = CollectionDeclaration(CollectionType.Table, "stratum", List(Field("stratum", FieldType.BloomInt)),List())
 
-  /* TODO
-  def hideChannels(program: Program): Program = {
-    val nodes = program.nodes.map{ prog =>
-        prog match {
-          case CollectionDeclaration()
-        }
-
-    }
-  }
-  */
-
   def staggerNonmonotonics(program: Program): Program = {
     val nodes = program.nodes.flatMap{
       case d: CollectionDeclaration => List(d)
@@ -36,6 +25,7 @@ object StratRewrites {
             )
           case _ => List(Statement(lhs, op, rhs, n))
         }
+      case xs => List(xs)
     }
     Program(nodes)
   }

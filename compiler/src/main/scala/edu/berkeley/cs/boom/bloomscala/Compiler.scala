@@ -15,7 +15,10 @@ import edu.berkeley.cs.boom.bloomscala.codegen.CodeGenerator
 import edu.berkeley.cs.boom.bloomscala.codegen.dataflow.GraphvizDataflowPrinter
 import edu.berkeley.cs.boom.bloomscala.codegen.c4.{C4CodeGenerator, DedalusCodeGenerator}
 import edu.berkeley.cs.boom.bloomscala.typing.Typer
+import edu.berkeley.cs.boom.bloomscala.rewriting.C4Rewrites._
+import edu.berkeley.cs.boom.bloomscala.rewriting.DedalusRewrites._
 import edu.berkeley.cs.boom.bloomscala.rewriting.StratRewrites._
+
 
 class CompilerArgs extends FieldArgs {
   @Required
@@ -29,6 +32,7 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
   def nameAndType(src: CharSequence)(implicit messaging: Messaging): Program = {
     try {
       val parseResults = BudParser.parseProgram(src)
+      //val expanded = processIncludes(parseResults)
       val named = new Namer(messaging).resolveNames(parseResults)
       val typed = new Typer(messaging).resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic.
@@ -45,6 +49,24 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
         throw new CompilerException("Compilation had error messages")
       }
     }
+  }
+
+  def processIncludes(program: Program): Program = {
+    println(s"TROLOLO $program")
+    val nodes = program.nodes.map{
+      case Include(file) => {
+        //val subProgram = BudParser.parseProgram(file)
+        println(s"I should absorb $file")
+        //subProgram
+        Include(file)
+      }
+      case x => {
+        println (s"regular old $x")
+        x
+      }
+    }
+    println("C YA")
+    Program(nodes)
   }
 
   /**
@@ -67,8 +89,12 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
     val (stratifier, depAnalyzer) = analysis(program)
     generator match {
       case C4CodeGenerator =>
-        val stratified = addStratConditions(program, stratifier)
+        //val stratified = staggerChannels(addStratConditions(program, stratifier))
+        val stratified = addStratConditions(staggerChannels(program), stratifier)
         (generator.generateCode(stratified, stratifier, depAnalyzer), stratifier)
+      case DedalusCodeGenerator =>
+        val framed = frameRules(program)
+        (generator.generateCode(framed, stratifier, depAnalyzer), stratifier)
       case _ => (generator.generateCode(program, stratifier, depAnalyzer), stratifier)
     }
   }

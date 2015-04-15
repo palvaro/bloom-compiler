@@ -18,6 +18,7 @@ trait DatalogCodeGenerator extends CodeGenerator {
         genExpr(a, parameterNames) <+> plus <+> genExpr(b, parameterNames)
       case RowExpr(colExprs) =>
         ssep(colExprs.map(genExpr(_, parameterNames)), ", ")
+      case ConstantColExpr(s, FieldType("string")) => dquotes(s)
       case ConstantColExpr(s, t) => text(s)
     }
   }
@@ -42,15 +43,22 @@ trait DatalogCodeGenerator extends CodeGenerator {
       (decl.name, cols)
     }.toMap
 
-
     val rules = program.statements.map { stm =>
-      val name = stm.lhs.name
-      var lhsArgs = parens(ssep(schema(name).map(i => i.toUpperCase).map(text), ", "))
+      //val name = stm.lhs.name
+      // c4 and dedalus targets use handle deletion differently, but share the del_TAB convention
+      val name = if (stm.op == BloomOp.Delete)  {
+        "del_" + stm.lhs.name
+      } else {
+        stm.lhs.name
+      }
+
+      var lhsArgs = parens(ssep(schema(stm.lhs.name).map(i => i.toUpperCase).map(text), ", "))
       val op: Doc = if (suffix) {
         val suff: Doc = stm.op match {
           case BloomOp.InstantaneousMerge => text("")
           case BloomOp.DeferredMerge => text("@next")
           case BloomOp.AsynchronousMerge => text("@async")
+          case BloomOp.Delete => text("")
           case f => text(s"// unhandled: $f")
         }
         suff <+> ":-"
@@ -81,37 +89,18 @@ trait DatalogCodeGenerator extends CodeGenerator {
           name <> argLst <> op <+> ssep(joinLst ++ qualLst, ", ") <> semi
         case NotIn(left: CollectionRef, anti: CollectionRef) =>
           name <> lhsArgs <> op <+> left.name <> lhsArgs <> "," <+> "notin" <+> anti.name <> lhsArgs <> semi
+        case Facts(rows) => {
+          /*
+          if (suffix) {
+            rows.map
+          } else {
+          */
+          rows.map(r => name <> parens(genExpr(r, List())) <> semi).reduce(_ <@@> _)
+          //}
+        }
         case _ => text(s"// UNRECOGNIZED: ${stm.rhs}")
       }
     }
-
-    //rules.toSeq.reduce(_ <@@> _)
     rules
   }
-
-  /*
-  final def generateCode(orig_program: Program, stratifier: Stratifier, depAnalyzer: DepAnalyzer): CharSequence = {
-    val program = orig_program
-
-
-
-    val rules = program.statements.map { stm =>
-
-/*
-      val suffix = stm.op match {
-        case BloomOp.InstantaneousMerge => text("")
-        case BloomOp.DeferredMerge => text("@next")
-        case BloomOp.AsynchronousMerge => text("@async")
-      }
-*/
-      //val op = suffix <+> text(":-")
-      val op = text(":-")
-      val name = stm.lhs.name
-      var lhsArgs = parens(ssep(schema(name).map(i => i.toUpperCase).map(text), ", "))
-      genStatement(stm)
-   }
-    val doc = (tables ++ rules).toSeq.reduce(_ <@@> _)
-    super.pretty(doc)
-  }
-  */
 }

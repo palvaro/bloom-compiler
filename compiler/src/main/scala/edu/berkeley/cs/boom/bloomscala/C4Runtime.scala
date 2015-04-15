@@ -27,21 +27,8 @@ class C4RuntimeArgs extends FieldArgs {
 
 object C4Runtime extends Logging with ArgMain[C4RuntimeArgs] {
 
-  def c4Play(program: Program, code: CharSequence, stratifier: Stratifier, args: C4RuntimeArgs): Unit = {
-    println(s"*** $code ***")
-    val maxStratum = program.nodes.map { n =>
-      val ret = n match {
-        case s: Statement => stratifier.ruleStratum(s)
-        case d: CollectionDeclaration => stratifier.collectionStratum(d)
-      }
-      println(s"RET $ret for $n")
-      ret
-    }.filter(r => r != Stratum.lastStratum).max
-
-    val wrap = new C4Wrapper("foo", code.toString, maxStratum, args.port)
-    wrap.start
-
-
+  //def c4Play(program: Program, code: CharSequence, stratifier: Stratifier, args: C4RuntimeArgs): Unit = {
+  def c4Play(wrap: C4Wrapper) {
     //wrap.install("stratum(0);")
     wrap.install("link(\"a\", \"b\", 3);")
     wrap.install("link(\"b\", \"c\", 2);")
@@ -91,8 +78,35 @@ object C4Runtime extends Logging with ArgMain[C4RuntimeArgs] {
     val (code, stratifier) = Compiler.generateCode(program, C4CodeGenerator)
 
 
+    val maxStratum = program.nodes.map { n =>
+      val ret = n match {
+        case s: Statement => stratifier.ruleStratum(s)
+        case d: CollectionDeclaration => stratifier.collectionStratum(d)
+      }
+      println(s"RET $ret for $n")
+      ret
+    }.filter(r => r != Stratum.lastStratum).max
+
+    println(s"running code:\n$code")
+
+    val wrap = new C4Wrapper("foo", code.toString, maxStratum, args.port)
+    wrap.start
+
+
+    wrap.tick
+
+    println(s"OK NOW")
+
+    while (true) {
+      var res = wrap.dump("ping")
+      println(s"PING: $res")
+      res = wrap.dump("pong")
+      println(s"PONG: $res")
+      Thread.sleep(1000)
+    }
     // now screw around
-    c4Play(program, code, stratifier, args)
+    //c4Play(program, code, stratifier, args)
+    Thread.sleep(10000)
 
   }
 }
