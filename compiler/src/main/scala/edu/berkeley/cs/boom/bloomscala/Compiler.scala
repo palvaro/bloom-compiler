@@ -18,7 +18,7 @@ import edu.berkeley.cs.boom.bloomscala.typing.Typer
 import edu.berkeley.cs.boom.bloomscala.rewriting.C4Rewrites._
 import edu.berkeley.cs.boom.bloomscala.rewriting.DedalusRewrites._
 import edu.berkeley.cs.boom.bloomscala.rewriting.StratRewrites._
-
+import sext._
 
 class CompilerArgs extends FieldArgs {
   @Required
@@ -29,14 +29,19 @@ class CompilerArgs extends FieldArgs {
 
 object Compiler extends Logging with ArgMain[CompilerArgs] {
 
+
+
   def nameAndType(src: CharSequence)(implicit messaging: Messaging): Program = {
     try {
       val parseResults = BudParser.parseProgram(src)
       //val expanded = processIncludes(parseResults)
+
       val named = new Namer(messaging).resolveNames(parseResults)
+
       val typed = new Typer(messaging).resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic.
       staggerNonmonotonics(typed)
+
     } catch { case e: Exception =>
       logger.error("Compilation failed", e)
       throw e

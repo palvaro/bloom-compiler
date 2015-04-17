@@ -10,8 +10,7 @@ object StratRewrites {
   val dec = CollectionDeclaration(CollectionType.Table, "stratum", List(Field("stratum", FieldType.BloomInt)),List())
 
   def staggerNonmonotonics(program: Program): Program = {
-    val nodes = program.nodes.flatMap{
-      case d: CollectionDeclaration => List(d)
+    val stms = program.statements.flatMap {
       case Statement(lhs, op, rhs, n) =>
         rhs match {
           case NotIn(left, anti) =>
@@ -25,9 +24,8 @@ object StratRewrites {
             )
           case _ => List(Statement(lhs, op, rhs, n))
         }
-      case xs => List(xs)
     }
-    Program(nodes)
+    Program(program.declarations ++ stms)
   }
 
   def addStratConditions(program: Program, stratifier: Stratifier): Program = {
@@ -60,6 +58,7 @@ object StratRewrites {
     val nodes = program.nodes.map {
       case d: CollectionDeclaration => d
       case s: Statement => Statement(s.lhs, s.op, addStratPred(s.rhs, stratifier.ruleStratum(s).underlying))
+      case m => m
     }
     Program(Seq(dec) ++ nodes)
   }

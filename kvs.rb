@@ -1,10 +1,10 @@
 
 module KVSProtocol {
   state {
-    interface input, :kvput, [:client, :key] => [:reqid: int, :value]
-    interface input, :kvdel, [:key] => [:reqid: int]
-    interface input, :kvget, [:reqid] => [:key]
-    interface output, :kvget_response, [:reqid] => [:key, :value]
+    interface input, kvput, [:client, :key] => [:reqid: int, :value]
+    interface input, kvdel, [:key] => [:reqid: int]
+    interface input, kvget, [:reqid] => [:key]
+    interface output, kvget_response, [:reqid] => [:key, :value]
   }
 }
 
@@ -35,4 +35,3 @@ module BasicKVS {
 
 
 include BasicKVS
-

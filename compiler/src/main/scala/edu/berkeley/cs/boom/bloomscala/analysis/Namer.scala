@@ -4,7 +4,7 @@ import edu.berkeley.cs.boom.bloomscala.ast._
 import org.kiama.attribution.Attribution._
 import org.kiama.rewriting.PositionalRewriter._
 import org.kiama.util.{Positioned, Messaging}
-import org.kiama.attribution.Attributable
+import org.kiama.attribution.{Attribution, Attributable}
 import edu.berkeley.cs.boom.bloomscala.stdlib.{UnknownFunction, BuiltInFunctions}
 
 /**
@@ -14,16 +14,34 @@ import edu.berkeley.cs.boom.bloomscala.stdlib.{UnknownFunction, BuiltInFunctions
 class Namer(messaging: Messaging) {
 
   import messaging.message
+  import sext._
 
   def resolveNames(program: Program): Program = {
-    val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef) <* everywhere(bindModuleRef)
-    rewrite(bindings)(program)
+    val interm_prog = rewrite(everywhere(bindModuleRef))(program)
+    val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef)
+    // why, oh why?
+    Attribution.initTree(interm_prog)
+    rewrite(bindings)(interm_prog)
+
   }
+
+  def containsPrograms(program: Program): Int = {
+    program.nodes.map {
+      case p: Program => containsPrograms(p) + 1
+      case _ => 0
+    }.sum
+  }
+
+  private val doNothing =
+    rule {
+      case m: Include => bindNothing(m)
+    }
 
   private val bindModuleRef =
     rule {
-      case m: Include => bindModule(m)
-
+      case m: Include =>
+        println(s"BIND $m")
+        bindModule(m)
     }
 
   private val bindCollectionRef =
@@ -53,9 +71,17 @@ class Namer(messaging: Messaging) {
       case j: JoinedCollections => bindJoins(j)
     }
 
+  private implicit def bindNothing: Include => Include =
+    attr {
+      case m => m
+    }
+
   private implicit def bindModule: Include => Program =
     attr {
-      case i @ Include(file) => Program(i->lookupModule(file))
+      case i @ Include(mod) =>
+        val modNodes = i->lookupModule(mod)
+        println(s"looked up $mod, found $modNodes")
+        Program(modNodes)
       case m => m
     }
 
@@ -80,14 +106,17 @@ class Namer(messaging: Messaging) {
     attr {
       case bound: BoundCollectionRef =>
         bound
-      case tv @ FreeTupleVariable(name) => tv->lookupTupleVar(name) match {
+      case tv @ FreeTupleVariable(name) =>
+        println("FTV")
+        tv->lookupTupleVar(name) match {
         case (md: MissingDeclaration, _) =>
           message(tv, s"Unknown tuple variable $name")
           BoundCollectionRef(name, md, -1)
         case (cd, lambdaArgNumber) =>
           BoundCollectionRef(name, cd, lambdaArgNumber)
       }
-      case cr @ FreeCollectionRef(name) => cr->lookup(name) match {
+      case cr @ FreeCollectionRef(name) =>
+        cr->lookup(name) match {
         case md: MissingDeclaration =>
           message(cr, s"Unknown collection $name")
           BoundCollectionRef(name, md, 0)
@@ -134,10 +163,11 @@ class Namer(messaging: Messaging) {
         case program: Program =>
           // ugh
           val modTxt = program.nodes.find{
-            case Module(_, name) => true
+            case Module(_, nm) => nm == name
             case _ => false
           }
           modTxt match {
+            // "suspicious shadowing"
             case Some(Module(nodes, name)) => nodes.toSeq
             case Some(_) => Seq()
             case None => Seq()
@@ -177,14 +207,16 @@ class Namer(messaging: Messaging) {
     paramAttr {
       name => {
         case module: Module =>
-          val colls: Traversable[CollectionDeclaration] = module.nodes.filter(_.isInstanceOf[CollectionDeclaration]).map(_.asInstanceOf[CollectionDeclaration])
+          val colls: Traversable[CollectionDeclaration] =
+            module.nodes.filter(_.isInstanceOf[CollectionDeclaration]).map(_.asInstanceOf[CollectionDeclaration]) ++
+            module.nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program].declarations).flatten
           val decl = colls.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
+
         case program: Program =>
           val decl = program.declarations.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
-        case n =>
-          n.parent->lookup(name)
+        case n => n.parent->lookup(name)
       }
     }
 }

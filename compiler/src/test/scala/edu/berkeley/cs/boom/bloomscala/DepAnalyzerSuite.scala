@@ -1,6 +1,7 @@
 package edu.berkeley.cs.boom.bloomscala
 
 import edu.berkeley.cs.boom.bloomscala.analysis.{Dependency, DepAnalyzer}
+import sext._
 
 class DepAnalyzerSuite extends BloomScalaSuite {
 
@@ -35,8 +36,10 @@ class DepAnalyzerSuite extends BloomScalaSuite {
         |      b <= a
         |      c <= b
       """.stripMargin)
+
     val depAnalyzer = new DepAnalyzer(program)
     import depAnalyzer._
+    
     assert(participatesInDeductiveCycle(program.statements.toSeq(0)))
     assert(participatesInDeductiveCycle(program.statements.toSeq(1)))
     assert(!participatesInDeductiveCycle(program.statements.toSeq(2)))

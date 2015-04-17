@@ -9,7 +9,6 @@ import edu.berkeley.cs.boom.bloomscala.typing.FieldType
 object DedalusCodeGenerator extends DatalogCodeGenerator {
   final def generateCode(orig_program: Program, stratifier: Stratifier, depAnalyzer: DepAnalyzer): CharSequence = {
     val program = orig_program
-
     val rules = genProgram(program, true)
     val doc = rules.toSeq.reduce(_ <@@> _)
     super.pretty(doc)
