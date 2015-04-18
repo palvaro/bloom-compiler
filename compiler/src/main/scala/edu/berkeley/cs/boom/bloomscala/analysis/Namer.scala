@@ -17,7 +17,9 @@ class Namer(messaging: Messaging) {
   import sext._
 
   def resolveNames(program: Program): Program = {
-    val interm_prog = rewrite(everywhere(bindModuleRef))(program)
+    val interm_prog1 = rewrite(everywhere(bindModuleRef))(program)
+    Attribution.initTree(interm_prog1)
+    val interm_prog = rewrite(everywhere(bindImportRef))(interm_prog1)
     val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef)
     // why, oh why?
     Attribution.initTree(interm_prog)
@@ -32,17 +34,25 @@ class Namer(messaging: Messaging) {
     }.sum
   }
 
-  private val doNothing =
-    rule {
-      case m: Include => bindNothing(m)
-    }
-
   private val bindModuleRef =
     rule {
-      case m: Include =>
-        println(s"BIND $m")
-        bindModule(m)
+      case n: Include =>
+        //println(s"BIND $n")
+        bindModule(n)
+      //case m: Import =>
+      //  bindImport(m)
     }
+
+  private val bindImportRef =
+    rule {
+      case m: Import => bindImport(m)
+    }
+
+//  private val mangleCollectionRef
+//    rule {
+//      case fc: FreeCollectionRef =>
+//        bind(fc)
+//    }
 
   private val bindCollectionRef =
     rule {
@@ -61,7 +71,6 @@ class Namer(messaging: Messaging) {
   private val bindFunctionRef =
     rule {
       case fr: FreeFunctionRef =>
-
         bindFunction(fr)
     }
 
@@ -71,9 +80,12 @@ class Namer(messaging: Messaging) {
       case j: JoinedCollections => bindJoins(j)
     }
 
-  private implicit def bindNothing: Include => Include =
-    attr {
-      case m => m
+  private implicit def mangleFCR: String => FreeCollectionRef => FreeCollectionRef =
+    paramAttr {
+      name => {
+        case FreeCollectionRef(nm) => FreeCollectionRef(s"$name.$nm")
+        case m => m
+      }
     }
 
   private implicit def bindModule: Include => Program =
@@ -83,6 +95,41 @@ class Namer(messaging: Messaging) {
         println(s"looked up $mod, found $modNodes")
         Program(modNodes)
       case m => m
+    }
+
+  private def mangle(mod: Seq[Node], alias: String): Program = {
+    val nodes = mod.map {
+      case CollectionDeclaration(typ, name, keys, vals) =>
+        println("COLDEC")
+        CollectionDeclaration(typ, s"$alias.$name", keys, vals)
+      //case FreeCollectionRef(name) => FreeCollectionRef(s"$alias.$name")
+      //case Statement(lhs, op, rhs, num) => rhs match {
+
+      //}
+      case Program(nodes) => mangle(nodes.toSeq, alias)
+      case m => m
+    }
+    println(s"mangled to $nodes")
+    Program(nodes)
+  }
+
+  //private implicit def mangleFreeColRef: FreeCollectionRef => FreeCollectionRef
+
+  private implicit def bindImport: Import => Program =
+    attr {
+      case i @ Import(mod, alias) =>
+        val modNodes = i->lookupModule(mod)
+        println(s"BIND IMPORT with ${modNodes}")
+        //mangle(modNodes, alias)
+        val rl1 = rule {
+          case f: FreeCollectionRef => mangleFCR(alias)(f)
+        }
+        val rl2 = rule {
+          case CollectionDeclaration(typ, name, keys, vals) => CollectionDeclaration(typ, s"$alias.$name", keys, vals)
+        }
+        val mn = rewrite(everywhere(rl2) <* everywhere(rl1))(modNodes)
+        println(s"MN is $mn")
+        Program(mn)
     }
 
   private implicit def bindMapCR: MappedCollection => MappedCollection =

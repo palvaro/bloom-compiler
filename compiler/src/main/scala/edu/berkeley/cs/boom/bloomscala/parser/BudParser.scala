@@ -115,7 +115,7 @@ trait   BudParser extends PositionedParserUtilities {
 
   lazy val moduleDeclaration: Parser[List[Node]] = {
   //lazy val moduleDeclaration = {
-    ("module" | "class") ~ ident ~ lbrac ~ rep(blockDeclaration | includeCalls) ~ rbrac ^^ {
+    ("module" | "class") ~ ident ~ lbrac ~ rep(blockDeclaration | includeCalls | importCalls) ~ rbrac ^^ {
     //("module" | "class") ~ ident ~ lbrac ~ rep(blockDeclaration) ~ rbrac ^^ {
       // grrrr
       //case (name ~ xs) => List(Module(xs.flatten, name))
@@ -123,6 +123,13 @@ trait   BudParser extends PositionedParserUtilities {
     }
   }
 
+  lazy val importCalls = {
+    "import" ~ ident ~ "=>" ~ ident ^^ {
+      case "import" ~ mod ~ "=>" ~ name => List(Import(mod, name))
+    }
+  }
+
+  // hack attack!
   lazy val importCall = {
     "import" ~ ident ~ "=>" ~ ident ^^ {
       case "import" ~ mod ~ "=>" ~ name => Import(mod, name)
@@ -147,7 +154,7 @@ trait   BudParser extends PositionedParserUtilities {
 
 
   lazy val program: Parser[Program] = {
-    lazy val topLevelDef = (includeCall | statement | collectionDeclaration) ^^ { case x => List(x) }
+    lazy val topLevelDef = (includeCall | importCall | statement | collectionDeclaration) ^^ { case x => List(x) }
     rep(blockDeclaration | moduleDeclaration | topLevelDef) ^^ {
     //rep(moduleDeclaration| blockDeclaration |  topLevelDef) ^^ {
       case listOfListsOfNodes => {

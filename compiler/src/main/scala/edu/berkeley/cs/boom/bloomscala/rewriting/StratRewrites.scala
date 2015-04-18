@@ -4,6 +4,7 @@ import edu.berkeley.cs.boom.bloomscala.ast._
 
 import edu.berkeley.cs.boom.bloomscala.analysis.Stratifier
 import edu.berkeley.cs.boom.bloomscala.typing._
+import sext._
 
 object StratRewrites {
 
@@ -55,12 +56,18 @@ object StratRewrites {
       }
     }
 
+    /*
     val nodes = program.nodes.map {
       case d: CollectionDeclaration => d
       case s: Statement => Statement(s.lhs, s.op, addStratPred(s.rhs, stratifier.ruleStratum(s).underlying))
       case m => m
     }
-    Program(Seq(dec) ++ nodes)
+    */
+    val stms = program.statements.map {s =>
+      Statement(s.lhs, s.op, addStratPred(s.rhs, stratifier.ruleStratum(s).underlying))
+    }//.toList.distinct
+    println(s"STMS ${stms.treeString}")
+    Program(Seq(dec) ++ program.declarations ++ stms)
   }
 
 }

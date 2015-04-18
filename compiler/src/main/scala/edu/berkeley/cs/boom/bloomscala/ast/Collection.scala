@@ -36,6 +36,8 @@ case class CollectionDeclaration(
 class MissingDeclaration() extends CollectionDeclaration(CollectionType.Table,
   "$$UnknownCollection", List.empty, List.empty)
 
+///class MissingModule() extends Node
+
 
 trait CollectionRef extends MappedCollectionTarget with StatementRHS {
   val name: String
