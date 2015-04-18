@@ -23,6 +23,50 @@ class NamerSuite extends BloomScalaSuite {
     )
   }
 
+  test("including modules should work as in BUD") {
+    Compiler.compileToIntermediateForm(
+      """
+        |module Eggs {
+        |    state {
+        |        table foo, [:key]
+        |        table bar, [:key]
+        |    }
+        |}
+        |
+        |module TastyNest {
+        |    include Eggs
+        |    bloom {
+        |        foo <= bar
+        |    }
+        |}
+        |
+        |include TastyNest
+      """.stripMargin
+    )
+  }
+
+    test("importing modules with aliases should work as in BUD") {
+      Compiler.compileToIntermediateForm(
+        """
+          |module Eggs {
+          |    state {
+          |        table foo, [:key]
+          |        table bar, [:key]
+          |    }
+          |}
+          |
+          |module TastyNest {
+          |    include Eggs
+          |    bloom {
+          |        foo <= bar
+          |    }
+          |}
+          |
+          |import TastyNest => :nest
+        """.stripMargin
+      )
+    }
+
   test("Referencing undeclared collections should fail") {
     intercept[CompilerException] { Compiler.compileToIntermediateForm("lhs <= rhs") }
   }
