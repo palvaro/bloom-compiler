@@ -48,7 +48,17 @@ trait   BudParser extends PositionedParserUtilities {
   lazy val string = "\"[^\"]*\"".r ^^ { s => ConstantColExpr(s.stripPrefix("\"").stripSuffix("\""), FieldType.BloomString)}
   lazy val constant = string | number
 
-  lazy val collectionRef = ident ^^ { i => FreeCollectionRef(i) }
+  //lazy val collectionRef = (ident | (ident ~ "->" ~ ident)) ^^ {
+  //  case i:String => FreeCollectionRef(i)
+
+  //lazy val collectionRef = (ident | (ident ~ "->" ~ ident)) ^^ {
+  lazy val collectionRef = opt(ident ~ "->") ~ ident ^^ {
+    case None ~ i => FreeCollectionRef(i)
+    // our implementation of module nesting just mandled names anyhow.
+    // we didn't want to make '.' a valid part of an ident
+    case Some(alias ~ _) ~ i =>
+      FreeCollectionRef(List(alias, i).mkString("_"))
+  }
 
   lazy val fieldRef = (collectionRef ~ "." ~ ident) ^^ {
     case collection ~ "." ~ field =>

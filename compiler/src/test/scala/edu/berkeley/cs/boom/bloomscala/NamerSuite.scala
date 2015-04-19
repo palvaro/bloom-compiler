@@ -41,6 +41,8 @@ class NamerSuite extends BloomScalaSuite {
         |}
         |
         |include TastyNest
+        |table baz, [:key]
+        |baz <= foo
       """.stripMargin
     )
   }
@@ -62,7 +64,20 @@ class NamerSuite extends BloomScalaSuite {
           |    }
           |}
           |
-          |import TastyNest => :nest
+          |module Yum {
+          | import TastyNest => :nest
+          |
+          | state {
+          |   table baz, [:key]
+          | }
+          |
+          | bloom {
+          |   baz <= nest->foo{|f| [f.key]}
+          |   nest->foo <= (baz * nest->bar) on (baz.key == nest->bar.key) { |b, r| r}
+          | }
+          |}
+          |
+          |include Yum
         """.stripMargin
       )
     }

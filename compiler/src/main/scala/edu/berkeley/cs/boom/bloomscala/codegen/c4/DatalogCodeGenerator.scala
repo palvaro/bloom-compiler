@@ -95,6 +95,7 @@ trait DatalogCodeGenerator extends CodeGenerator {
             rows.map
           } else {
           */
+          println(s"FACTS!!!")
           rows.map(r => name <> parens(genExpr(r, List())) <> semi).reduce(_ <@@> _)
           //}
         }

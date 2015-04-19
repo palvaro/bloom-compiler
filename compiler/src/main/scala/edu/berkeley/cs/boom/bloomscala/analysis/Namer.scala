@@ -20,6 +20,7 @@ class Namer(messaging: Messaging) {
     val interm_prog1 = rewrite(everywhere(bindModuleRef))(program)
     Attribution.initTree(interm_prog1)
     val interm_prog = rewrite(everywhere(bindImportRef))(interm_prog1)
+    //println(s"INTERM: ${interm_prog.treeString}")
     val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef)
     // why, oh why?
     Attribution.initTree(interm_prog)
@@ -36,23 +37,13 @@ class Namer(messaging: Messaging) {
 
   private val bindModuleRef =
     rule {
-      case n: Include =>
-        //println(s"BIND $n")
-        bindModule(n)
-      //case m: Import =>
-      //  bindImport(m)
+      case n: Include => bindModule(n)
     }
 
   private val bindImportRef =
     rule {
       case m: Import => bindImport(m)
     }
-
-//  private val mangleCollectionRef
-//    rule {
-//      case fc: FreeCollectionRef =>
-//        bind(fc)
-//    }
 
   private val bindCollectionRef =
     rule {
@@ -83,7 +74,8 @@ class Namer(messaging: Messaging) {
   private implicit def mangleFCR: String => FreeCollectionRef => FreeCollectionRef =
     paramAttr {
       name => {
-        case FreeCollectionRef(nm) => FreeCollectionRef(s"$name.$nm")
+        //case FreeCollectionRef(nm) => FreeCollectionRef(s"$name_$nm")
+        case FreeCollectionRef(nm) => FreeCollectionRef(List(name, nm).mkString("_"))
         case m => m
       }
     }
@@ -92,7 +84,6 @@ class Namer(messaging: Messaging) {
     attr {
       case i @ Include(mod) =>
         val modNodes = i->lookupModule(mod)
-        println(s"looked up $mod, found $modNodes")
         Program(modNodes)
       case m => m
     }
@@ -105,9 +96,11 @@ class Namer(messaging: Messaging) {
           case f: FreeCollectionRef => mangleFCR(alias)(f)
         }
         val rl2 = rule {
-          case CollectionDeclaration(typ, name, keys, vals) => CollectionDeclaration(typ, s"$alias.$name", keys, vals)
+          case CollectionDeclaration(typ, name, keys, vals) => CollectionDeclaration(typ, List(alias, name).mkString("_"), keys, vals)
         }
         val mn = rewrite(everywhere(rl2) <* everywhere(rl1))(modNodes)
+        println(s"Cons up a subprogram ${mn.treeString}")
+        println(s"FROM $modNodes")
         Program(mn)
     }
 
@@ -185,18 +178,46 @@ class Namer(messaging: Messaging) {
   private lazy val lookupModule: String => Attributable => Seq[Node] =
     paramAttr {
       name => {
-        case program: Program =>
+        case program: Program => {
           // ugh
           val modTxt = program.nodes.find{
             case Module(_, nm) => nm == name
             case _ => false
           }
+          println(s"look for $name below $modTxt")
+          // *surely* this ain't the scala way to do this!!
+          modTxt match {
+            case None => {
+              if (program.parent != null) {
+                program.parent->lookupModule(name)
+              } else {
+                Seq()
+              }
+            }
+            case Some(Module(nodes, name)) => nodes.toSeq
+          }
+
+          /*
+          if (program.parent != null && mod) {
+            //program.parent->lookupModule(name)
+            Seq()
+          } else {
+            modTxt match {
+              case Some(Module(nodes, name)) => nodes.toSeq
+              case _ => Seq()
+            }
+          }
+          */
+
+          /*
           modTxt match {
             // "suspicious shadowing"
             case Some(Module(nodes, name)) => nodes.toSeq
             case Some(_) => Seq()
             case None => Seq()
           }
+          */
+        }
         case n => n.parent->lookupModule(name)
       }
     }
@@ -232,6 +253,7 @@ class Namer(messaging: Messaging) {
     paramAttr {
       name => {
         case module: Module =>
+          println(s"need to hoist up ${module.name}")
           val colls: Traversable[CollectionDeclaration] =
             module.nodes.filter(_.isInstanceOf[CollectionDeclaration]).map(_.asInstanceOf[CollectionDeclaration]) ++
             module.nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program].declarations).flatten
@@ -239,6 +261,9 @@ class Namer(messaging: Messaging) {
           decl.getOrElse(new MissingDeclaration())
 
         case program: Program =>
+          if (name == "nest.foo") {
+            println(s"Lookup $name in ${program}")
+          }
           val decl = program.declarations.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
         case n => n.parent->lookup(name)

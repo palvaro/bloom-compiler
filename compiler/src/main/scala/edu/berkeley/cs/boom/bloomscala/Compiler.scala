@@ -37,7 +37,7 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       //val expanded = processIncludes(parseResults)
 
       val named = new Namer(messaging).resolveNames(parseResults)
-      println(s"PROGRAM ${named.treeString}")
+      //println(s"PROGRAM ${named.treeString}")
       val typed = new Typer(messaging).resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic.
       staggerNonmonotonics(typed)

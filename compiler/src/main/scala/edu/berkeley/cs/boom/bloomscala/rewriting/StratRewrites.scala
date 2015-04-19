@@ -56,17 +56,10 @@ object StratRewrites {
       }
     }
 
-    /*
-    val nodes = program.nodes.map {
-      case d: CollectionDeclaration => d
-      case s: Statement => Statement(s.lhs, s.op, addStratPred(s.rhs, stratifier.ruleStratum(s).underlying))
-      case m => m
-    }
-    */
     val stms = program.statements.map {s =>
       Statement(s.lhs, s.op, addStratPred(s.rhs, stratifier.ruleStratum(s).underlying))
     }//.toList.distinct
-    println(s"STMS ${stms.treeString}")
+    //println(s"STMS ${stms.treeString}")
     Program(Seq(dec) ++ program.declarations ++ stms)
   }
 
