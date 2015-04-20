@@ -35,7 +35,7 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       val expanded = processRequires(parseResults, context)
       Attribution.initTree(expanded)
       val named = new Namer(messaging).resolveNames(expanded)
-      println(s"PROGRAM ${named.treeString}")
+      //println(s"PROGRAM ${named.treeString}")
       val typed = new Typer(messaging).resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic.
       staggerNonmonotonics(typed)
@@ -55,18 +55,14 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
   }
 
   def processRequires(program: Program, context: File): Program = {
-    println(s"TROLOLO $program")
     val nodes = program.nodes.map{
       case Require(filename) => {
-        println(s"I should absorb $filename")
         val file = new File(context, filename)
         val subProgram = BudParser.parseProgram(Source.fromFile(file).getLines().mkString("\n"))
-        println(s"I should absorb $file")
         subProgram
       }
       case x => x
     }
-    println("C YA")
     Program(nodes)
   }
 

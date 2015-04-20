@@ -2,7 +2,7 @@ package edu.berkeley.cs.boom.bloomscala
 
 
 class NamerSuite extends BloomScalaSuite {
-/*
+
   test("table aliases in the RHS should work as in BUD") {
     Compiler.compileToIntermediateForm(
       """
@@ -46,7 +46,7 @@ class NamerSuite extends BloomScalaSuite {
       """.stripMargin
     )
   }
-*/
+
     test("importing modules with aliases should work as in BUD") {
       Compiler.compileToIntermediateForm(
         """
@@ -86,7 +86,6 @@ class NamerSuite extends BloomScalaSuite {
       )
     }
 
-  /*
   test("Referencing undeclared collections should fail") {
     intercept[CompilerException] { Compiler.compileToIntermediateForm("lhs <= rhs") }
   }
@@ -99,6 +98,5 @@ class NamerSuite extends BloomScalaSuite {
       """.stripMargin)
     }
   }
-  */
 
 }

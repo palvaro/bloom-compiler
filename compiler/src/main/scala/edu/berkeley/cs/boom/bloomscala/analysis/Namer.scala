@@ -72,11 +72,12 @@ class Namer(messaging: Messaging) {
       case j: JoinedCollections => bindJoins(j)
     }
 
-  private implicit def mangleFCR: String => FreeCollectionRef => FreeCollectionRef =
+  private implicit def mangleCR: String => CollectionRef => CollectionRef =
     paramAttr {
       name => {
         //case FreeCollectionRef(nm) => FreeCollectionRef(s"$name_$nm")
         case FreeCollectionRef(nm) => FreeCollectionRef(List(name, nm).mkString("_"))
+        case BoundCollectionRef(nm, col, lan) => BoundCollectionRef(List(name, nm).mkString("_"), col, lan)
         case m => m
       }
     }
@@ -92,9 +93,12 @@ class Namer(messaging: Messaging) {
   private implicit def bindImport: Import => Program =
     attr {
       case i @ Import(mod, alias) =>
+        // here is the problem.  this module is "raw."
+        // we should't touch it until we're sure that its module nestings
+        // are completely resolved.
         val modNodes = i->lookupModule(mod)
         val rl1 = rule {
-          case f: FreeCollectionRef => mangleFCR(alias)(f)
+          case f: CollectionRef => mangleCR(alias)(f)
         }
         val rl2 = rule {
           case CollectionDeclaration(typ, name, keys, vals) =>
@@ -106,9 +110,7 @@ class Namer(messaging: Messaging) {
             }
         }
 
-        val mn = rewrite(everywhere(rl2) <* everywhere(rl1))(modNodes)
-        //println(s"Cons up a subprogram ${mn.treeString}")
-        //println(s"FROM $modNodes")
+        val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <* everywhere(rl2) <* everywhere(rl1))(modNodes)
         Program(mn.nodes)
     }
 
@@ -188,32 +190,9 @@ class Namer(messaging: Messaging) {
     paramAttr {
       name => {
         case program: Program =>
-          // ugh
-          /*
-          val modTxt = program.nodes.find{
-            case Module(_, nm) => nm == name
-            case _ => false
-          }
-          println(s"look for $name below $modTxt")
-          // *surely* this ain't the scala way to do this!!
-          modTxt match {
-            case None => {
-              if (program.parent != null) {
-                program.parent->lookupModule(name)
-              } else {
-                message(program, s"Couldn't find module $name")
-                Seq()
-              }
-            }
-            case Some(Module(nodes, name)) => nodes.toSeq
-          }
-        }
-        */
-          println(s"now look up $name")
           program.modules.find{m => m.name == name}.getOrElse{
             if (program.parent == null) {
               message(program, s"Couldn't find module $name among ${program.modules.map(_.name)}")
-              println(s"BARFO $name IN ${program}")
               new MissingModule
             } else {
               program.parent->lookupModule(name)
@@ -254,7 +233,6 @@ class Namer(messaging: Messaging) {
     paramAttr {
       name => {
         case module: Module =>
-          println(s"need to hoist up ${module.name}")
           val colls: Traversable[CollectionDeclaration] =
             module.nodes.filter(_.isInstanceOf[CollectionDeclaration]).map(_.asInstanceOf[CollectionDeclaration]) ++
             module.nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program].declarations).flatten
@@ -262,9 +240,6 @@ class Namer(messaging: Messaging) {
           decl.getOrElse(new MissingDeclaration())
 
         case program: Program =>
-          if (name == "basic_bed_rcv") {
-            println(s"Lookup $name in ${program}")
-          }
           val decl = program.declarations.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
         case n => n.parent->lookup(name)

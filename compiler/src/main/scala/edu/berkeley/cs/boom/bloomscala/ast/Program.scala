@@ -17,8 +17,7 @@ case class Program(nodes_in: Traversable[Node]) extends Node {
 
   lazy val modules: Traversable[Module] = {
     val lmods = nodes.filter(_.isInstanceOf[Module]).map(_.asInstanceOf[Module])
-    val subprogs = nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program])
-    println(s"at this level, mods are ${lmods.map(_.name)}, subprogs $subprogs")
+    //val subprogs = nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program])
     (lmods ++
       nodes.filter(_.isInstanceOf[Program]).map(_.asInstanceOf[Program].modules).flatten).toList.distinct
   }
