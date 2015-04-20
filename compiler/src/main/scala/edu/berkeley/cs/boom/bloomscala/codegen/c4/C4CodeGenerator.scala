@@ -13,14 +13,14 @@ object C4CodeGenerator extends DatalogCodeGenerator {
     val program = orig_program
 
     val tables = program.declarations.map { decl =>
-      val cols = decl.keys ++ decl.values
+      val cols = (decl.keys ++ decl.values)
       val typs:List[Doc] = cols.map {
         case Field(n, FieldType.BloomLocation) => text("@string")
         case Field(_, FieldType(t)) => text(t)
       }
-      val tab = "define" <> parens("del_" <> decl.name <> comma <+> braces(ssep(typs, ", "))) <> semi
+      val tab = "define" <> parens(decl.name <> comma <+> braces(ssep(typs, ", "))) <> semi
       if (decl.collectionType == CollectionType.Table) {
-        "define" <> parens(decl.name <> comma <+> braces(ssep(typs, ", "))) <> semi <@> tab
+        "define" <> parens("del_" <> decl.name <> comma <+> braces(ssep(typs, ", "))) <> semi <@> tab
       } else {
         tab
       }

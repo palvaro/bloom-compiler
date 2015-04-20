@@ -1,6 +1,7 @@
 package edu.berkeley.cs.boom.bloomscala.analysis
 
 import edu.berkeley.cs.boom.bloomscala.ast._
+import edu.berkeley.cs.boom.bloomscala.typing.CollectionType
 import org.kiama.attribution.Attribution._
 import org.kiama.rewriting.PositionalRewriter._
 import org.kiama.util.{Positioned, Messaging}
@@ -83,8 +84,8 @@ class Namer(messaging: Messaging) {
   private implicit def bindModule: Include => Program =
     attr {
       case i @ Include(mod) =>
-        val modNodes = i->lookupModule(mod)
-        Program(modNodes)
+        val module = i->lookupModule(mod)
+        Program(module.nodes)
       case m => m
     }
 
@@ -96,12 +97,19 @@ class Namer(messaging: Messaging) {
           case f: FreeCollectionRef => mangleFCR(alias)(f)
         }
         val rl2 = rule {
-          case CollectionDeclaration(typ, name, keys, vals) => CollectionDeclaration(typ, List(alias, name).mkString("_"), keys, vals)
+          case CollectionDeclaration(typ, name, keys, vals) =>
+            val mangled = List(alias, name).mkString ("_")
+            typ match {
+              case CollectionType.Output => CollectionDeclaration(CollectionType.Scratch, mangled, keys, vals)
+              case CollectionType.Input => CollectionDeclaration(CollectionType.Scratch, mangled, keys, vals)
+              case typ => CollectionDeclaration(typ, mangled, keys, vals)
+            }
         }
+
         val mn = rewrite(everywhere(rl2) <* everywhere(rl1))(modNodes)
-        println(s"Cons up a subprogram ${mn.treeString}")
-        println(s"FROM $modNodes")
-        Program(mn)
+        //println(s"Cons up a subprogram ${mn.treeString}")
+        //println(s"FROM $modNodes")
+        Program(mn.nodes)
     }
 
   private implicit def bindMapCR: MappedCollection => MappedCollection =
@@ -175,11 +183,13 @@ class Namer(messaging: Messaging) {
     }
   }
 
-  private lazy val lookupModule: String => Attributable => Seq[Node] =
+  //private lazy val lookupModule: String => Attributable => Seq[Node] =
+  private lazy val lookupModule: String => Attributable => Module =
     paramAttr {
       name => {
-        case program: Program => {
+        case program: Program =>
           // ugh
+          /*
           val modTxt = program.nodes.find{
             case Module(_, nm) => nm == name
             case _ => false
@@ -191,33 +201,24 @@ class Namer(messaging: Messaging) {
               if (program.parent != null) {
                 program.parent->lookupModule(name)
               } else {
+                message(program, s"Couldn't find module $name")
                 Seq()
               }
             }
             case Some(Module(nodes, name)) => nodes.toSeq
           }
-
-          /*
-          if (program.parent != null && mod) {
-            //program.parent->lookupModule(name)
-            Seq()
-          } else {
-            modTxt match {
-              case Some(Module(nodes, name)) => nodes.toSeq
-              case _ => Seq()
+        }
+        */
+          println(s"now look up $name")
+          program.modules.find{m => m.name == name}.getOrElse{
+            if (program.parent == null) {
+              message(program, s"Couldn't find module $name among ${program.modules.map(_.name)}")
+              println(s"BARFO $name IN ${program}")
+              new MissingModule
+            } else {
+              program.parent->lookupModule(name)
             }
           }
-          */
-
-          /*
-          modTxt match {
-            // "suspicious shadowing"
-            case Some(Module(nodes, name)) => nodes.toSeq
-            case Some(_) => Seq()
-            case None => Seq()
-          }
-          */
-        }
         case n => n.parent->lookupModule(name)
       }
     }
@@ -261,7 +262,7 @@ class Namer(messaging: Messaging) {
           decl.getOrElse(new MissingDeclaration())
 
         case program: Program =>
-          if (name == "nest.foo") {
+          if (name == "basic_bed_rcv") {
             println(s"Lookup $name in ${program}")
           }
           val decl = program.declarations.find(_.name == name)

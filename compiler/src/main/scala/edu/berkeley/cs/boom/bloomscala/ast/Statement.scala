@@ -35,6 +35,7 @@ case class Facts(tups: List[RowExpr]) extends StatementRHS
 
 case class Include(mod: String) extends Node
 case class Import(mod: String, name: String) extends Node
+case class Require(file: String) extends Node
 
 /**
  * Implements argmin.

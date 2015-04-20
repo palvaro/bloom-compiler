@@ -99,10 +99,10 @@ class Typer(messaging: Messaging) {
           message(stmt, s"Output collections cannot appear in the RHS of rules")
           false
         } else if (!CollectionType.validLHSTypes.contains(lhs.collection.collectionType) && !rhs.isInstanceOf[Facts]) {
-          //message(stmt, s"Cannot insert into collections of type '${lhs.collection.collectionType}'")
-          //false
+          message(stmt, s"Cannot insert into collections of type '${lhs.collection.collectionType}'")
+          false
           //message(stmt, s"Should you insert into collections of type '${lhs.collection.collectionType}'?")
-          true
+          //true
         } else if (lhs.collection.collectionType == CollectionType.Output && op != BloomOp.AsynchronousMerge) {
           message(stmt, s"Output collections only support the <~ operator, but found " + op)
           false

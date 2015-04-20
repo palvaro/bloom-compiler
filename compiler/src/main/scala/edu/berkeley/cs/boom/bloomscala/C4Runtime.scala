@@ -97,6 +97,7 @@ object C4Runtime extends Logging with ArgMain[C4RuntimeArgs] {
 
     println(s"OK NOW")
 
+    /*
     while (true) {
       var res = wrap.dump("ping")
       println(s"PING: $res")
@@ -104,6 +105,7 @@ object C4Runtime extends Logging with ArgMain[C4RuntimeArgs] {
       println(s"PONG: $res")
       Thread.sleep(1000)
     }
+    */
     // now screw around
     //c4Play(program, code, stratifier, args)
     Thread.sleep(10000)

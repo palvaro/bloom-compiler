@@ -2,6 +2,7 @@ package edu.berkeley.cs.boom.bloomscala
 
 import com.typesafe.scalalogging.slf4j.Logging
 import edu.berkeley.cs.boom.bloomscala.exe.C4Wrapper
+import org.kiama.attribution.Attribution
 import org.kiama.util.Messaging
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.parser.BudParser
@@ -28,16 +29,13 @@ class CompilerArgs extends FieldArgs {
 
 
 object Compiler extends Logging with ArgMain[CompilerArgs] {
-
-
-
-  def nameAndType(src: CharSequence)(implicit messaging: Messaging): Program = {
+  def nameAndType(src: CharSequence, context: File = new File("."))(implicit messaging: Messaging): Program = {
     try {
       val parseResults = BudParser.parseProgram(src)
-      //val expanded = processIncludes(parseResults)
-
-      val named = new Namer(messaging).resolveNames(parseResults)
-      //println(s"PROGRAM ${named.treeString}")
+      val expanded = processRequires(parseResults, context)
+      Attribution.initTree(expanded)
+      val named = new Namer(messaging).resolveNames(expanded)
+      println(s"PROGRAM ${named.treeString}")
       val typed = new Typer(messaging).resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic.
       staggerNonmonotonics(typed)
@@ -56,19 +54,17 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
     }
   }
 
-  def processIncludes(program: Program): Program = {
+  def processRequires(program: Program, context: File): Program = {
     println(s"TROLOLO $program")
     val nodes = program.nodes.map{
-      case Include(file) => {
-        //val subProgram = BudParser.parseProgram(file)
+      case Require(filename) => {
+        println(s"I should absorb $filename")
+        val file = new File(context, filename)
+        val subProgram = BudParser.parseProgram(Source.fromFile(file).getLines().mkString("\n"))
         println(s"I should absorb $file")
-        //subProgram
-        Include(file)
+        subProgram
       }
-      case x => {
-        println (s"regular old $x")
-        x
-      }
+      case x => x
     }
     println("C YA")
     Program(nodes)
@@ -113,7 +109,7 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       case "dedalus" => DedalusCodeGenerator
       case unknown => throw new IllegalArgumentException(s"Unknown target platform $unknown")
     }
-    val program = nameAndType(Source.fromFile(args.infile).mkString)
+    val program = nameAndType(Source.fromFile(args.infile).mkString, args.infile.getParentFile)
     val (code, stratifier) = generateCode(program, generator)
     println(code)
   }

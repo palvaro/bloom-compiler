@@ -159,12 +159,18 @@ trait   BudParser extends PositionedParserUtilities {
     }
   }
 
+  lazy val requireCall: Parser[Node] = {
+    "require" ~ string  ^^ {
+      case "require" ~ mod  => Require(mod.data)
+    }
+  }
+
   override val whiteSpace =
     """(\s|(//.*\n))+""".r
 
 
   lazy val program: Parser[Program] = {
-    lazy val topLevelDef = (includeCall | importCall | statement | collectionDeclaration) ^^ { case x => List(x) }
+    lazy val topLevelDef = (requireCall | includeCall | importCall | statement | collectionDeclaration) ^^ { case x => List(x) }
     rep(blockDeclaration | moduleDeclaration | topLevelDef) ^^ {
     //rep(moduleDeclaration| blockDeclaration |  topLevelDef) ^^ {
       case listOfListsOfNodes => {
