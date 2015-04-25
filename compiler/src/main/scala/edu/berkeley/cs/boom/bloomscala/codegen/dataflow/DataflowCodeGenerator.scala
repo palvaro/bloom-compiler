@@ -76,6 +76,10 @@ trait DataflowCodeGenerator extends CodeGenerator {
             rhsOutput <-> table.pendingIn
           case Delete =>
             rhsOutput <-> table.deleteIn
+          case AsynchronousMerge
+
+          =>
+            rhsOutput <-> table.pendingIn
         }
         case output: OutputElement => op match {
           case AsynchronousMerge =>

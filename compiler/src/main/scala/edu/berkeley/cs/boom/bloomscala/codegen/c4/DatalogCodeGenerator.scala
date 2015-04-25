@@ -20,6 +20,13 @@ trait DatalogCodeGenerator extends CodeGenerator {
         ssep(colExprs.map(genExpr(_, parameterNames)), ", ")
       case ConstantColExpr(s, FieldType("string")) => dquotes(s)
       case ConstantColExpr(s, t) => text(s)
+      //case NestedTupleRef(BoundCollectionRef(_, CollectionDeclaration(_, _, keys, values), _), _) =>
+      case NestedTupleRef(bcr, typ) =>
+        //println(s"gen up a string from ${keys ++ values} and $parameterNames")
+        val cols = (bcr.collection.keys ++ bcr.collection.values).map(c => BoundFieldRef(bcr, c.name, c))
+
+        //text("FOO")
+        genExpr(RowExpr(cols), parameterNames)
     }
   }
 

@@ -14,6 +14,9 @@ object InitialRewrites {
   private val collectionRefToTupleVar =
     rule {
       case FreeCollectionRef(name) => FreeTupleVariable(name)
+      //case TabRefColExpr(name) =>
+      //  println(s"HOT DOG $name")
+      //  FreeTupleVariable(name)
     }
 
   /**

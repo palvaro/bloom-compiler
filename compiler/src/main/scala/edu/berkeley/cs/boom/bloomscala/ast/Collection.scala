@@ -59,6 +59,10 @@ case class BoundCollectionRef(
     override val lambdaArgNumber: Int
  ) extends CollectionRef
 
+case class NestedTupleRef(boundCollectionRef: BoundCollectionRef,
+                          override val typ:BloomType = new FieldType("record")
+                           ) extends ColExpr
+
 
 /************************* Fields ******************************************/
 

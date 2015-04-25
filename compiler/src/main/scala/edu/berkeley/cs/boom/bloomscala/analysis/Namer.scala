@@ -2,6 +2,8 @@ package edu.berkeley.cs.boom.bloomscala.analysis
 
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.typing.CollectionType
+
+import edu.berkeley.cs.boom.bloomscala.typing.FieldType
 import org.kiama.attribution.Attribution._
 import org.kiama.rewriting.PositionalRewriter._
 import org.kiama.util.{Positioned, Messaging}
@@ -21,7 +23,6 @@ class Namer(messaging: Messaging) {
     val interm_prog1 = rewrite(everywhere(bindModuleRef))(program)
     Attribution.initTree(interm_prog1)
     val interm_prog = rewrite(everywhere(bindImportRef))(interm_prog1)
-    //println(s"INTERM: ${interm_prog.treeString}")
     val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef)
     // why, oh why?
     Attribution.initTree(interm_prog)
@@ -52,12 +53,17 @@ class Namer(messaging: Messaging) {
         bind(fc)
       case ftv: FreeTupleVariable =>
         bind(ftv)
+      case tr: TabRefColExpr =>
+        new NestedTupleRef(bind(tr))
     }
 
   private val bindFieldRef =
     rule {
       case fr: FreeFieldRef =>
+        val bf = bindField(fr)
         bindField(fr)
+      case tr: TabRefColExpr =>
+        bind(FreeCollectionRef(tr.name))
     }
 
   private val bindFunctionRef =
@@ -109,8 +115,16 @@ class Namer(messaging: Messaging) {
               case typ => CollectionDeclaration(typ, mangled, keys, vals)
             }
         }
+        // if the internal implementation 'sent' results asyncronously to its output interface,
+        // we can erase that here
+        val rl3 = rule {
+          case Statement(lhs @ BoundCollectionRef(name,CollectionDeclaration(CollectionType.Output, _, _, _), _), BloomOp.AsynchronousMerge, rhs, num) =>
+            Statement(lhs, BloomOp.InstantaneousMerge, rhs, num)
+        }
 
-        val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <* everywhere(rl2) <* everywhere(rl1))(modNodes)
+        //val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <* everywhere(rl3) <* everywhere(rl2) <* everywhere(rl1))(modNodes)
+        val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <*  everywhere(rl2) <* everywhere(rl1))(modNodes)
+
         Program(mn.nodes)
     }
 
@@ -131,7 +145,7 @@ class Namer(messaging: Messaging) {
       case j => j
     }
 
-  private implicit def bind: CollectionRef => BoundCollectionRef =
+  private implicit def bind: Attributable => BoundCollectionRef =
     attr {
       case bound: BoundCollectionRef =>
         bound
@@ -151,6 +165,14 @@ class Namer(messaging: Messaging) {
         case cd =>
           BoundCollectionRef(name, cd, 0)
       }
+      case tr @ TabRefColExpr(name) =>
+        tr->lookupTupleVar(name) match {
+          case md: MissingDeclaration =>
+            BoundCollectionRef(name, md, 0)
+          case cd =>
+            BoundCollectionRef(name, cd._1, 0)
+        }
+
     }
 
   private implicit def bindField: FreeFieldRef => BoundFieldRef =
@@ -224,8 +246,7 @@ class Namer(messaging: Messaging) {
           }
         case program: Program =>
           throw new IllegalStateException("A tuple variable appeared in an invalid context")
-        case n =>
-          n.parent->lookupTupleVar(name)
+        case n => n.parent->lookupTupleVar(name)
       }
     }
 
@@ -242,7 +263,8 @@ class Namer(messaging: Messaging) {
         case program: Program =>
           val decl = program.declarations.find(_.name == name)
           decl.getOrElse(new MissingDeclaration())
-        case n => n.parent->lookup(name)
+        case n =>
+          n.parent->lookup(name)
       }
     }
 }

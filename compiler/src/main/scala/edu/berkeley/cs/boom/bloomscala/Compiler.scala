@@ -35,9 +35,8 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
       val expanded = processRequires(parseResults, context)
       Attribution.initTree(expanded)
       val named = new Namer(messaging).resolveNames(expanded)
-      //println(s"PROGRAM ${named.treeString}")
       val typed = new Typer(messaging).resolveTypes(named)
-      // the thinking is that this rewrite should be perfectly hygienic.
+      // the thinking is that this rewrite should be perfectly hygienic. :)
       staggerNonmonotonics(typed)
 
     } catch { case e: Exception =>

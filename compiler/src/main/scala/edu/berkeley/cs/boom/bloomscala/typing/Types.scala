@@ -29,11 +29,14 @@ object FieldType {
   val BloomString = new FieldType("string")
   val BloomBoolean = new FieldType("boolean")
   val BloomLocation = new FieldType("location")
+  val BloomRecord = new FieldType("record")
+
   val nameToType: Map[String, FieldType] = Map(
     "int" -> BloomInt,
     "string" -> BloomString,
     "boolean" -> BloomBoolean,
-    "location" -> BloomLocation
+    "location" -> BloomLocation,
+    "record" -> BloomRecord
   )
 }
 

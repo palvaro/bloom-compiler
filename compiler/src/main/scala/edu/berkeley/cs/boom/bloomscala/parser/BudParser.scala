@@ -68,10 +68,11 @@ trait   BudParser extends PositionedParserUtilities {
   lazy val functionCall = ident ~ "(" ~ repsep(colExpr, ",") ~ ")" ^^ {
     case name ~ "(" ~ args ~ ")" => FunctionCall(FreeFunctionRef(name), args)
   }
+  lazy val tabRef = ident ^^ TabRefColExpr
   lazy val colTerm = fieldRef
   lazy val colExpr: Parser[ColExpr] = {
     def plus = colTerm ~ "+" ~ colExpr ^^ {case a ~ "+" ~ b => PlusStatement(a, b, UnknownType())}
-    plus | functionCall | colTerm | constant
+    plus | functionCall | colTerm | constant | tabRef
   }
   //lazy val rowExpr: Parser[RowExpr] = listOf(colExpr) ^^ RowExpr
   lazy val rowExpr: Parser[Expr] = (listOf(colExpr) ^^ RowExpr)| (ident ^^ TableRefExpr)

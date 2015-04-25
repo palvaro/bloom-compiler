@@ -61,3 +61,8 @@ case class ConstantColExpr(data: String, override val typ: BloomType) extends Co
 case class TableRefExpr(alias: String) extends Expr {
   override val typ = UnknownType()
 }
+
+case class TabRefColExpr(name: String) extends ColExpr  {
+//case class TabRefColExpr(name: String) extends CollectionRef with ColExpr {
+  override val typ = UnknownType()
+}

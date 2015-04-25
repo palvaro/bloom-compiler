@@ -1,8 +1,11 @@
+require "reliableBroadcast.rb"
+// FIXME: shouldn't need to redundantly include, right?
+require "reliableDelivery.rb"
 
 module KVSProtocol {
   state {
-    interface input, kvput, [:client, :key] => [:reqid: int, :value]
-    interface input, kvdel, [:key] => [:reqid: int]
+    interface input, kvput, [:client, :key] => [:reqid, :value]
+    interface input, kvdel, [:key] => [:reqid]
     interface input, kvget, [:reqid] => [:key]
     interface output, kvget_response, [:reqid] => [:key, :value]
   }
@@ -18,21 +21,33 @@ module BasicKVS {
   bloom :mutate {
     kvstate <+ kvput {|s| [s.key, s.value]}
     kvstate <- (kvput * kvstate) on (kvput.key == kvstate.key) { |p, s|
-        //[s.key, s.value]
         s
     }
   }
 
-
   bloom :get {
-    //temp :getj <= (kvget * kvstate).pairs(:key => :key)
-    //kvget_response <= getj { |g, t|
     kvget_response <~ (kvget * kvstate) on (kvget.key == kvstate.key) { |g, t|
       [g.reqid, t.key, t.value]
     }
   }
 }
 
+module ReplicatedKVS {
+  import BasicKVS => kvs
+  include KVSProtocol
+  import ReliableBcast => bcast
 
-include BasicKVS
+  bloom :glue {
+    kvs->kvput <= kvput
+    kvs->kvget <= kvget
+    kvget_response <~ kvs->kvget_response
+  }
+
+  bloom {
+    bcast->pipe_in <= kvput{|k| [k.client, k.reqid, k]}
+  }
+}
+
+
+include ReplicatedKVS
 
