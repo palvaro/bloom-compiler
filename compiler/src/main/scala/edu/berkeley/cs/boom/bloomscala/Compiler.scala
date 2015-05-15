@@ -1,7 +1,6 @@
 package edu.berkeley.cs.boom.bloomscala
 
-import com.typesafe.scalalogging.slf4j.Logging
-import edu.berkeley.cs.boom.bloomscala.exe.C4Wrapper
+import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
 import org.kiama.util.Messaging
 import edu.berkeley.cs.boom.bloomscala.ast._
@@ -19,7 +18,6 @@ import edu.berkeley.cs.boom.bloomscala.typing.Typer
 import edu.berkeley.cs.boom.bloomscala.rewriting.C4Rewrites._
 import edu.berkeley.cs.boom.bloomscala.rewriting.DedalusRewrites._
 import edu.berkeley.cs.boom.bloomscala.rewriting.StratRewrites._
-import sext._
 
 class CompilerArgs extends FieldArgs {
   @Required
@@ -27,8 +25,7 @@ class CompilerArgs extends FieldArgs {
   var target: String = "RxFlow"
 }
 
-
-object Compiler extends Logging with ArgMain[CompilerArgs] {
+object Compiler extends LazyLogging with ArgMain[CompilerArgs] {
   def nameAndType(src: CharSequence, context: File = new File("."))(implicit messaging: Messaging): Program = {
     try {
       val parseResults = BudParser.parseProgram(src)
@@ -55,11 +52,10 @@ object Compiler extends Logging with ArgMain[CompilerArgs] {
 
   def processRequires(program: Program, context: File): Program = {
     val nodes = program.nodes.map{
-      case Require(filename) => {
+      case Require(filename) =>
         val file = new File(context, filename)
         val subProgram = BudParser.parseProgram(Source.fromFile(file).getLines().mkString("\n"))
         subProgram
-      }
       case x => x
     }
     Program(nodes)
