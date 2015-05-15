@@ -4,6 +4,7 @@ import edu.berkeley.cs.boom.bloomscala.codegen.CodeGenerator
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.analysis.{Stratum, DepAnalyzer, Stratifier}
 import edu.berkeley.cs.boom.bloomscala.typing.FieldType
+import edu.berkeley.cs.boom.bloomscala.typing.RecordType
 
 
 trait DatalogCodeGenerator extends CodeGenerator {
@@ -46,7 +47,15 @@ trait DatalogCodeGenerator extends CodeGenerator {
 
   def genProgram(program: Program, suffix: Boolean): Traversable[Doc] = {
     val schema: Map[String, List[String]] = program.declarations.map { decl =>
+      val attrs = (decl.keys ++ decl.values).map{a =>
+        a.typ match {
+          case RecordType(fields) => fields
+          case _ => a
+        }
+      }
+      println(s"ATTRS $attrs")
       val cols = 0.until((decl.keys ++ decl.values).length).map(i => decl.name + i.toString).toList
+      println(s"COLS $cols")
       (decl.name, cols)
     }.toMap
 

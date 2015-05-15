@@ -52,7 +52,10 @@ class Typer(messaging: Messaging) {
       case ConstantColExpr(_, typ) =>
         typ
       //case TabRefColExpr(alias) =>
-      case NestedTupleRef(bcr, typ) => typ
+      case NestedTupleRef(bcr, typ) =>
+        println(s"Nested tup  $typ")
+        //typ
+        bcr.collection.schema
 
     }
 
@@ -112,8 +115,8 @@ class Typer(messaging: Messaging) {
         } else {
           val lSchema = lhs.collection.schema
           val rSchema = rhsSchema(rhs)
-          if (rSchema != lSchema && !rSchema.fieldTypes.contains(FieldType.BloomRecord)) {
-            message(stmt, s"RHS (for ${lhs.name} <= ${rhs}}) has wrong schema; expected ${pretty(lSchema)} but got ${pretty(rSchema)}")
+          if (rSchema != lSchema && !lSchema.fieldTypes.contains(FieldType.BloomRecord)) {
+            message(stmt, s"RHS (for ${lhs.name} <= ) has wrong schema; expected ${pretty(lSchema)} but got ${pretty(rSchema)}")
             false
           } else {
             true

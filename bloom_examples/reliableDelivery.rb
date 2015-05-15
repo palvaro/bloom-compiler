@@ -1,15 +1,15 @@
 module DeliveryProto {
 	state {
-		input send, [:sender, :recipient, :id, :msg]
-		output rcv, [:recipient, :sender, :id, :msg]
-		output sent, [:sender, :recipient, :id, :msg]
+		input send, [:sender, :recipient, :id, :msg: record]
+		output rcv, [:recipient, :sender, :id, :msg: record]
+		output sent, [:sender, :recipient, :id, :msg: record]
 	}
 }
 
 module BestEffortDelivery {
 	include DeliveryProto
 	state {
-		channel deliv, [:recipient, :sender, :id, :msg]
+		channel deliv, [:recipient, :sender, :id, :msg: record]
 	}
 	bloom {
 		deliv <~ send{|s| [s.recipient, s.sender, s.id, s.msg]}
@@ -23,8 +23,8 @@ module ReliableDelivery {
 	import BestEffortDelivery => bed
 
 	state {
-		table send_buf, [:sender, :recipient, :id, :msg]
-		table ack_buf, [:sender, :recipient, :id, :msg]
+		table send_buf, [:sender, :recipient, :id, :msg: record]
+		table ack_buf, [:sender, :recipient, :id, :msg: record]
         channel ack, [:sender, :recipient, :id]
 	}
 

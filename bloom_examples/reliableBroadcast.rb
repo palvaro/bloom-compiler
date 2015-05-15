@@ -9,9 +9,9 @@ module MembershipProto {
 
 module BcastProto {
 	state {
-		input pipe_in, [:node, :id, :payload]
-		output pipe_out, [:node, :id, :payload]
-		output pipe_sent, [:node, :id, :payload]
+		input pipe_in, [:node, :id, :payload: record]
+		output pipe_out, [:node, :id, :payload: record]
+		output pipe_sent, [:node, :id, :payload: record]
 	}
 }
 

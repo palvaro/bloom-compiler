@@ -86,6 +86,31 @@ class NamerSuite extends BloomScalaSuite {
       )
     }
 
+  test("nested records should work as in BUD") {
+    Compiler.compileToIntermediateForm(
+      """
+        |module Eggs {
+        |    state {
+        |        table foo, [key, val: record]
+        |        table baz, [key, val: record]
+        |        table bar, [key, val]
+        |    }
+        |}
+        |
+        |module TastyNest {
+        |    include Eggs
+        |    bloom {
+        |        //foo <= bar{|b| [b.key, b]}
+        |        baz <= foo
+        |    }
+        |}
+        |
+        |include TastyNest
+      """.stripMargin
+    )
+  }
+
+
   test("Referencing undeclared collections should fail") {
     intercept[CompilerException] { Compiler.compileToIntermediateForm("lhs <= rhs") }
   }

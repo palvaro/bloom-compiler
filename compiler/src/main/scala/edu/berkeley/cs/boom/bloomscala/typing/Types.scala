@@ -2,7 +2,6 @@ package edu.berkeley.cs.boom.bloomscala.typing
 
 import org.kiama.attribution.Attributable
 
-
 trait BloomType
 
 /**
@@ -37,6 +36,7 @@ object FieldType {
     "boolean" -> BloomBoolean,
     "location" -> BloomLocation,
     "record" -> BloomRecord
+    //"record" -> RecordType
   )
 }
 
