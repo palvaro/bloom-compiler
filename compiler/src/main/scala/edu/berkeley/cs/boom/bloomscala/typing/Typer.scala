@@ -1,17 +1,23 @@
 package edu.berkeley.cs.boom.bloomscala.typing
 
 import org.kiama.attribution.Attribution._
-import org.kiama.util.Messaging
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.typing.FieldType._
-import org.kiama.rewriting.PositionalRewriter._
+import org.kiama.rewriting.PositionedRewriter._
 import edu.berkeley.cs.boom.bloomscala.parser.BloomPrettyPrinter.pretty
 import org.kiama.attribution.Attributable
+import org.kiama.util.Messaging
+import org.kiama.util.Messaging._
+import org.kiama.util.{Positions, Message}
 
 
-class Typer(messaging: Messaging) {
+class Typer() {
 
-  import messaging.message
+  //TODO: Move to new Kiama messaging system
+  var errors : Messages = noMessages
+  def message[T] (value : T, msg : String, cond : Boolean = true):Unit = {
+    errors = errors ++ Messaging.message(value, msg,cond)
+  }
 
   /**
    * Assign types to all expressions.
@@ -22,7 +28,7 @@ class Typer(messaging: Messaging) {
   }
 
   private val assignType =
-    rule {
+    rule[BloomType] {
       case ut: UnboundType =>
         // An unbound type should appear as a field of an Expr, so
         // grab that expression's type:

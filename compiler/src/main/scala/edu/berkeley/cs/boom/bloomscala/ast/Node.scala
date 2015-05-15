@@ -1,7 +1,8 @@
 package edu.berkeley.cs.boom.bloomscala.ast
 
 import org.kiama.attribution.Attributable
-import org.kiama.util.Positioned
 
+import scala.util.parsing.input.Positional
 
-trait Node extends Attributable with Positioned
+trait Node extends Attributable with Positional
+

@@ -2,7 +2,7 @@ package edu.berkeley.cs.boom.bloomscala
 
 import com.typesafe.scalalogging.LazyLogging
 import org.kiama.attribution.Attribution
-import org.kiama.util.Messaging
+import org.kiama.util.{ErrorEmitter, Emitter, Messaging}
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.parser.BudParser
 import edu.berkeley.cs.boom.bloomscala.analysis._
@@ -26,22 +26,27 @@ class CompilerArgs extends FieldArgs {
 }
 
 object Compiler extends LazyLogging with ArgMain[CompilerArgs] {
-  def nameAndType(src: CharSequence, context: File = new File("."))(implicit messaging: Messaging): Program = {
+  def nameAndType(src: CharSequence, context: File = new File("."))(implicit emitter: Emitter): Program = {
+    val typer = new Typer()
+    val namer = new Namer()
     try {
       val parseResults = BudParser.parseProgram(src)
       val expanded = processRequires(parseResults, context)
       Attribution.initTree(expanded)
-      val named = new Namer(messaging).resolveNames(expanded)
-      val typed = new Typer(messaging).resolveTypes(named)
+      val named = namer.resolveNames(expanded)
+      val typed = typer.resolveTypes(named)
       // the thinking is that this rewrite should be perfectly hygienic. :)
       staggerNonmonotonics(typed)
 
-    } catch { case e: Exception =>
-      logger.error("Compilation failed", e)
-      throw e
+    } catch {
+      case e: Exception =>
+        logger.error("Compilation failed", e)
+        throw e
     } finally {
-      if (messaging.messagecount != 0) {
-        messaging.report()
+      //FIXME Sort this out
+      val allError = typer.errors ++ namer.errors
+      if (allError.nonEmpty) {
+        Messaging.report(allError, emitter)
         // TODO: this is fine for now for simple tests, but in the future
         // `compile` should return more detailed information for consumption
         // by unit tests
@@ -64,11 +69,11 @@ object Compiler extends LazyLogging with ArgMain[CompilerArgs] {
   /**
    * Compiles a program, but stops short of code generation.
    */
-  def compileToIntermediateForm(src: CharSequence)(implicit messaging: Messaging): Program = {
+  def compileToIntermediateForm(src: CharSequence)(implicit emitter: Emitter): Program = {
     nameAndType(src)
   }
 
-  def analysis(program: Program)(implicit messaging: Messaging): (Stratifier, DepAnalyzer) = {
+  def analysis(program: Program)(implicit emitter: Emitter): (Stratifier, DepAnalyzer) = {
     val depAnalyzer = new DepAnalyzer(program)
     val stratifier = new Stratifier(depAnalyzer)
     if (!stratifier.isTemporallyStratifiable(program)) {
@@ -77,7 +82,7 @@ object Compiler extends LazyLogging with ArgMain[CompilerArgs] {
     (stratifier, depAnalyzer)
   }
 
-  def generateCode(program: Program, generator: CodeGenerator)(implicit messaging: Messaging): (CharSequence, Stratifier) = {
+  def generateCode(program: Program, generator: CodeGenerator)(implicit emitter: Emitter): (CharSequence, Stratifier) = {
     val (stratifier, depAnalyzer) = analysis(program)
     generator match {
       case C4CodeGenerator =>
@@ -92,7 +97,7 @@ object Compiler extends LazyLogging with ArgMain[CompilerArgs] {
   }
 
   def main(args: CompilerArgs) {
-    implicit val messaging = new Messaging
+    implicit val emitter = new ErrorEmitter
     val generator = args.target.toLowerCase match {
       case "rxflow" => RxFlowCodeGenerator
       case "dataflow" => GraphvizDataflowPrinter
