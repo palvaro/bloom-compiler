@@ -1,7 +1,7 @@
 package edu.berkeley.cs.boom.bloomscala.rewriting
 
 import edu.berkeley.cs.boom.bloomscala.ast._
-import org.kiama.rewriting.PositionalRewriter._
+import org.kiama.rewriting.PositionedRewriter._
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -12,7 +12,7 @@ object InitialRewrites {
   private val nextStatementNumber = new AtomicInteger(0)
 
   private val collectionRefToTupleVar =
-    rule {
+    rule[Node] {
       case FreeCollectionRef(name) => FreeTupleVariable(name)
       //case TabRefColExpr(name) =>
       //  println(s"HOT DOG $name")
@@ -23,7 +23,7 @@ object InitialRewrites {
    * Assign unique numbers to rules.
    */
   private val numberRules =
-    rule {
+    rule[Node] {
       case Statement(a, b, c, -1) => Statement(a, b, c, nextStatementNumber.getAndIncrement)
     }
 
@@ -32,7 +32,7 @@ object InitialRewrites {
    * change it into a FreeTupleVariable.
    */
   private val labelTupleVars =
-    rule {
+    rule[Node] {
       case JoinedCollections(collections, predicate, tupleVars, rowExpr) =>
         JoinedCollections(collections, predicate, tupleVars,
           rewrite(everywherebu(collectionRefToTupleVar))(rowExpr) )

@@ -1,23 +1,29 @@
 package edu.berkeley.cs.boom.bloomscala.analysis
 
 import edu.berkeley.cs.boom.bloomscala.ast._
+import edu.berkeley.cs.boom.bloomscala.stdlib.{BuiltInFunctions, UnknownFunction}
 import edu.berkeley.cs.boom.bloomscala.typing.CollectionType
 import edu.berkeley.cs.boom.bloomscala.typing.RecordType
 import edu.berkeley.cs.boom.bloomscala.typing.FieldType
 import org.kiama.attribution.Attribution._
-import org.kiama.rewriting.PositionalRewriter._
-import org.kiama.util.{Positioned, Messaging}
-import org.kiama.attribution.{Attribution, Attributable}
-import edu.berkeley.cs.boom.bloomscala.stdlib.{UnknownFunction, BuiltInFunctions}
+import org.kiama.attribution.{Attributable, Attribution}
+import org.kiama.rewriting.PositionedRewriter._
+import org.kiama.util.Messaging
+import org.kiama.util.Messaging._
+
+import scala.util.parsing.input.Positional
 
 /**
  * Rewrites the AST to bind field, function, and collection references.
    PAA: hoist up modules too!
  */
-class Namer(messaging: Messaging) {
+class Namer() {
 
-  import messaging.message
-  import sext._
+  //TODO: Move to new Kiama messaging system
+  var errors : Messages = noMessages
+  def message[T] (value : T, msg : String, cond : Boolean = true):Unit = {
+    errors = errors ++ Messaging.message(value, msg,cond)
+  }
 
   def resolveNames(program: Program): Program = {
     // HELP! I don't understand why I need to keep reintializing the tree between rewrites
@@ -41,22 +47,22 @@ class Namer(messaging: Messaging) {
   }
 
   private val expandNestedCollections =
-    rule {
+    rule[Node] {
       case c: CollectionDeclaration => expandNested(c)
     }
 
   private val bindModuleRef =
-    rule {
+    rule[Node] {
       case n: Include => bindModule(n)
     }
 
   private val bindImportRef =
-    rule {
+    rule[Node] {
       case m: Import => bindImport(m)
     }
 
   private val bindCollectionRef =
-    rule {
+    rule[Node] {
       case fc: FreeCollectionRef =>
         bind(fc)
       case ftv: FreeTupleVariable =>
@@ -66,7 +72,7 @@ class Namer(messaging: Messaging) {
     }
 
   private val bindFieldRef =
-    rule {
+    rule[Node] {
       case fr: FreeFieldRef =>
         val bf = bindField(fr)
         bindField(fr)
@@ -75,13 +81,13 @@ class Namer(messaging: Messaging) {
     }
 
   private val bindFunctionRef =
-    rule {
+    rule[Node] {
       case fr: FreeFunctionRef =>
         bindFunction(fr)
     }
 
   private val bindTableRef =
-    rule {
+    rule[Node] {
       case mr: MappedCollection => bindMapCR(mr)
       case j: JoinedCollections => bindJoins(j)
     }
@@ -128,10 +134,10 @@ class Namer(messaging: Messaging) {
     attr {
       case i @ Import(mod, alias) =>
         val modNodes = i->lookupModule(mod)
-        val rl1 = rule {
+        val rl1 = rule[Node] {
           case f: CollectionRef => mangleCR(alias)(f)
         }
-        val rl2 = rule {
+        val rl2 = rule[Node] {
           case CollectionDeclaration(typ, name, keys, vals) =>
             val mangled = List(alias, name).mkString ("_")
             typ match {
@@ -142,7 +148,7 @@ class Namer(messaging: Messaging) {
         }
         // if the internal implementation 'sent' results asynchronously to its output interface,
         // we can erase that here
-        val rl3 = rule {
+        val rl3 = rule[Node] {
           case Statement(lhs @ BoundCollectionRef(name,CollectionDeclaration(CollectionType.Output, _, _, _), _), BloomOp.AsynchronousMerge, rhs, num) =>
             Statement(lhs, BloomOp.InstantaneousMerge, rhs, num)
         }
@@ -223,7 +229,7 @@ class Namer(messaging: Messaging) {
       case cr: CollectionRef => Seq(cr)
     }
 
-  private def checkTupleVarCount(expectedSize: Int, actual: List[String], loc: Positioned) {
+  private def checkTupleVarCount(expectedSize: Int, actual: List[String], loc: Positional) {
     if (actual.size != expectedSize) {
       message(loc, s"Wrong number of tuple vars; expected $expectedSize but got ${actual.size}")
     }
