@@ -99,6 +99,39 @@ class NamerSuite extends BloomScalaSuite {
     emitter.assertContainFuzzy("[2.1] Unknown collection notThere")
   }
 
+  test("nested records should work as in BUD") {
+    compileSource(
+      """
+        |module Eggs {
+        |    state {
+        |        table foo, [key, val: record]
+        |        table baz, [key, val: record]
+        |        table bar, [key, val]
+        |    }
+        |}
+        |
+        |module TastyNest {
+        |    include Eggs
+        |    bloom {
+        |        //foo <= bar{|b| [b.key, b]}
+        |        baz <= foo
+        |    }
+        |}
+        |
+        |include TastyNest
+      """.stripMargin
+    )
+  }
+
+
+  test("Referencing undeclared collections should fail") {
+    intercept[CompilerException] {
+      compileSource("lhs <= rhs")
+    }
+    emitter.assertContainFuzzy("[1.1] Unknown collection lhs")
+    emitter.assertContainFuzzy("[1.8] Unknown collection rhs")
+  }
+
   test("Referencing non-tuple variables in map functions should fail") {
     intercept[CompilerException] {
       compileSource(

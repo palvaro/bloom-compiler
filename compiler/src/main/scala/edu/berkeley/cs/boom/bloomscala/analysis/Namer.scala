@@ -3,6 +3,8 @@ package edu.berkeley.cs.boom.bloomscala.analysis
 import edu.berkeley.cs.boom.bloomscala.ast._
 import edu.berkeley.cs.boom.bloomscala.stdlib.{BuiltInFunctions, UnknownFunction}
 import edu.berkeley.cs.boom.bloomscala.typing.CollectionType
+import edu.berkeley.cs.boom.bloomscala.typing.RecordType
+import edu.berkeley.cs.boom.bloomscala.typing.FieldType
 import org.kiama.attribution.Attribution._
 import org.kiama.attribution.{Attributable, Attribution}
 import org.kiama.rewriting.PositionedRewriter._
@@ -24,15 +26,17 @@ class Namer() {
   }
 
   def resolveNames(program: Program): Program = {
+    // HELP! I don't understand why I need to keep reintializing the tree between rewrites
     val interm_prog1 = rewrite(everywhere(bindModuleRef))(program)
     Attribution.initTree(interm_prog1)
     val interm_prog = rewrite(everywhere(bindImportRef))(interm_prog1)
+    // nested references too
     val bindings = everywhere(bindCollectionRef) <* everywhere(bindTableRef) <* everywhere(bindFieldRef) <* everywhere(bindFunctionRef)
     // why, oh why?
     Attribution.initTree(interm_prog)
-    val rewrittenProgram = rewrite(bindings)(interm_prog)
-
-    rewrittenProgram
+    val interm_prog2 = rewrite(bindings)(interm_prog)
+    Attribution.initTree(interm_prog2)
+    rewrite(everywhere(expandNestedCollections))(interm_prog2)
   }
 
   def containsPrograms(program: Program): Int = {
@@ -41,6 +45,11 @@ class Namer() {
       case _ => 0
     }.sum
   }
+
+  private val expandNestedCollections =
+    rule[Node] {
+      case c: CollectionDeclaration => expandNested(c)
+    }
 
   private val bindModuleRef =
     rule[Node] {
@@ -86,12 +95,32 @@ class Namer() {
   private implicit def mangleCR: String => CollectionRef => CollectionRef =
     paramAttr {
       name => {
-        //case FreeCollectionRef(nm) => FreeCollectionRef(s"$name_$nm")
         case FreeCollectionRef(nm) => FreeCollectionRef(List(name, nm).mkString("_"))
         case BoundCollectionRef(nm, col, lan) => BoundCollectionRef(List(name, nm).mkString("_"), col, lan)
         case m => m
       }
     }
+
+  private implicit def expandNested: CollectionDeclaration => CollectionDeclaration =
+    attr {
+      // think about this.  expansion is transitive.  we need to change a collection definition if
+      // 1) it appears as the lhs of a rule R, whose rhs references a nested collection, or
+      // 2) it appears as the lhs of a rule R, whose rhs
+      case d: CollectionDeclaration =>
+        d.copy(keys = expandRecords(d, d.keys), values = expandRecords(d, d.values))
+    }
+
+  def expandRecords(d: CollectionDeclaration, fields: List[Field]): List[Field] = {
+    val nested = fields.map{f =>
+      if (f.typ == FieldType.BloomRecord) {
+        f->schemaLookup(d)(f.name)
+      } else {
+        List(f)
+        //RecordType(List(f.typ))
+      }
+    }
+    nested.flatten
+  }
 
   private implicit def bindModule: Include => Program =
     attr {
@@ -104,9 +133,6 @@ class Namer() {
   private implicit def bindImport: Import => Program =
     attr {
       case i @ Import(mod, alias) =>
-        // here is the problem.  this module is "raw."
-        // we should't touch it until we're sure that its module nestings
-        // are completely resolved.
         val modNodes = i->lookupModule(mod)
         val rl1 = rule[Node] {
           case f: CollectionRef => mangleCR(alias)(f)
@@ -120,16 +146,13 @@ class Namer() {
               case typ => CollectionDeclaration(typ, mangled, keys, vals)
             }
         }
-        // if the internal implementation 'sent' results asyncronously to its output interface,
+        // if the internal implementation 'sent' results asynchronously to its output interface,
         // we can erase that here
         val rl3 = rule[Node] {
           case Statement(lhs @ BoundCollectionRef(name,CollectionDeclaration(CollectionType.Output, _, _, _), _), BloomOp.AsynchronousMerge, rhs, num) =>
             Statement(lhs, BloomOp.InstantaneousMerge, rhs, num)
         }
-
-        //val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <* everywhere(rl3) <* everywhere(rl2) <* everywhere(rl1))(modNodes)
         val mn = rewrite(everywhere(bindImportRef) <* everywhere(bindModuleRef) <*  everywhere(rl2) <* everywhere(rl1))(modNodes)
-
         Program(mn.nodes)
     }
 
@@ -212,7 +235,57 @@ class Namer() {
     }
   }
 
-  //private lazy val lookupModule: String => Attributable => Seq[Node] =
+  private lazy val schemaLookup: CollectionDeclaration => String => Attributable => List[Field] =
+    paramAttr {
+      col => {
+        name => {
+          case p: Program =>
+            if (p.parent == null) {
+              // top o' the tree
+              val attr = (col.keys ++ col.values).map(k => k.name).indexOf(name)
+              val immediates = for (rule <- p.statements;
+                                    if (rule.lhs.name == col.name)
+              ) yield rowExprOf(rule.rhs)
+
+              val nested = immediates.flatten.map{i =>
+                i.cols(attr) match {
+                  case NestedTupleRef(colRef, typ) => Some(colRef.collection)
+                  case _ => None
+                }
+              }.flatten
+              if (nested.isEmpty) {
+                //col
+                // need to handle transitive case
+                col.keys ++ col.values
+              } else {
+                println(s"IMMEDIATES ${col.name} == ${nested.head}")
+                (nested.head.keys ++ nested.head.values)
+              }
+            } else {
+              p.parent->schemaLookup(col)(name)
+            }
+          case m => m.parent->schemaLookup(col)(name)
+        }
+      }
+    }
+
+  private def reMap(keys: List[Field], attr: Integer, sub: RecordType): List[Field] = {
+    keys.zipWithIndex.map {case(e,i) =>
+      if (i == attr) {
+        Field(e.name, sub)
+      } else {
+        e
+      }
+    }
+  }
+
+  private lazy val rowExprOf: StatementRHS => Option[RowExpr] =
+    attr {
+      case JoinedCollections(_, _, _, rowExpr: RowExpr) => Some(rowExpr)
+      case MappedCollection(_, _, rowExpr: RowExpr) => Some(rowExpr)
+      case _ => None
+    }
+
   private lazy val lookupModule: String => Attributable => Module =
     paramAttr {
       name => {
